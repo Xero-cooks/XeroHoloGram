@@ -16,12 +16,15 @@ import { FloatingWidgets } from './shaders/FloatingWidgets';
 import { RigStudioDrawer } from './ui/RigStudioDrawer';
 import { StageCalibPanel, StageCalibSettings } from './ui/StageCalibPanel';
 import { TelemetryHUD } from './ui/TelemetryHUD';
+import { AICoreModal, LLMConfig, TTSConfig } from './ui/AICoreModal';
+import { AudioSettingsDrawer, AudioSettingsData } from './ui/AudioSettingsDrawer';
 import { LoadedRiggedModel } from './rig/UniversalModelLoader';
 
 /**
  * XeroHoloGram Main Application Bootstrapper
  * Orchestrates 60 FPS WebGL Hologram Viewport, SO(3) Kinematics,
- * Multi-Format 3D Model Ingestion, and Full-Duplex Dual-Stream Audio/D3 WebSocket.
+ * Multi-Format 3D Model Ingestion, AI Core (LLM/TTS) Harness,
+ * Microphone Device Selector, and Fullscreen Pepper's Ghost Projection.
  */
 async function bootstrapHologramApp() {
   const container = document.getElementById('hologram-viewport');
@@ -29,6 +32,8 @@ async function bootstrapHologramApp() {
 
   // 1. Initialize Stage & Holographic Camera
   const stage = new HologramStage(container, DEFAULT_STAGE_CONFIG);
+  // Default IPS Panel Display High-Contrast Boost
+  stage.setIPSOptimization(true, 1.45);
 
   // 2. Ambient Holographic Dust & Flashy Concentric Stage Pedestal
   const particles = new HoloParticles(200);
@@ -84,75 +89,97 @@ async function bootstrapHologramApp() {
       telemetryHUD.updateData({ speechState: 'SPECULATIVE' });
       wsClient.sendTranscript(interimText, false);
       floatingWidgets.log(`[STT INTERIM] "${interimText}"`);
+      aiModal.log(`[STT INTERIM] "${interimText}"`);
     },
     onFinalTranscript: (finalText: string) => {
       telemetryHUD.updateData({ speechState: 'SPEAKING' });
       wsClient.sendTranscript(finalText, true);
       floatingWidgets.log(`[STT FINAL] "${finalText}"`);
+      aiModal.log(`[YOU]: "${finalText}"`);
     }
   });
 
-  // 10. Wire WebSocket Handlers
-  wsClient.onStatus((status) => {
-    floatingWidgets.log(`[WS] Status changed: ${status.toUpperCase()}`);
-    if (status === 'connected') {
-      telemetryHUD.updateData({ shaderState: 'cyan_nominative' });
+  // 10. AI Core Modal (LLM & TTS Settings & Test Harness)
+  const aiModal = new AICoreModal({
+    onSaveLLMConfig: (llmCfg: LLMConfig) => {
+      wsClient.sendJSON({
+        type: 'llm_config',
+        provider: llmCfg.provider,
+        base_url: llmCfg.baseUrl,
+        api_key: llmCfg.apiKey,
+        model: llmCfg.model,
+        system_prompt: llmCfg.systemPrompt
+      });
+      floatingWidgets.log(`[AI SYNC] LLM: ${llmCfg.model}`);
+    },
+    onSaveTTSConfig: (ttsCfg: TTSConfig) => {
+      wsClient.sendJSON({
+        type: 'llm_config',
+        tts_engine: ttsCfg.engine,
+        tts_voice: ttsCfg.voice,
+        tts_rate: ttsCfg.rate
+      });
+      floatingWidgets.log(`[TTS SYNC] Voice: ${ttsCfg.voice}`);
+    },
+    onSendTestPrompt: (promptText: string) => {
+      floatingWidgets.log(`[PROMPT] "${promptText}"`);
+      telemetryHUD.updateData({ speechState: 'SPEAKING' });
+
+      // Send to WebSocket backend
+      wsClient.sendJSON({
+        type: 'prompt_request',
+        text: promptText,
+        client_timestamp: performance.now()
+      });
+
+      // Browser TTS Fallback if user selected browser_tts or backend is offline
+      const currentTTS = aiModal.getTTSConfig();
+      if (currentTTS.engine === 'browser_tts' || typeof window.speechSynthesis !== 'undefined') {
+        const u = new SpeechSynthesisUtterance(promptText);
+        u.pitch = 0.9;
+        u.rate = 1.05;
+        // Trigger responsive gesture
+        currentBasePose = 'hand_up_ack';
+        setTimeout(() => { currentBasePose = 'finger_up_insight'; }, 1200);
+        setTimeout(() => { currentBasePose = 'neutral'; }, 3200);
+      }
+    },
+    onTestVoiceSample: (sampleText: string, voiceName: string) => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(sampleText);
+        u.pitch = 0.92;
+        u.rate = 1.0;
+        window.speechSynthesis.speak(u);
+      }
+      currentBasePose = 'hand_up_ack';
+      setTimeout(() => { currentBasePose = 'neutral'; }, 2500);
     }
   });
 
-  wsClient.onRTT((rttMs) => {
-    telemetryHUD.updateData({ rttMs });
-  });
-
-  wsClient.onAudio((_header, pcmSamples) => {
-    audioPlayer.playChunk(pcmSamples);
-    telemetryHUD.updateData({ speechState: 'SPEAKING' });
-  });
-
-  let gestureKeyframeQueue: Array<{
-    triggerMs: number;
-    durationMs: number;
-    preset: string;
-    weight: number;
-    overrides: Record<string, [number, number, number]>;
-  }> = [];
-  let gestureStartTime = performance.now();
-
-  wsClient.onKinematics((packet: D3KinematicPacket) => {
-    telemetryHUD.updateData({
-      intentClass: packet.intent_class,
-      emotion: packet.emotion,
-      shaderState: packet.holo_shader_state,
-      d3LatencyMs: Math.round(packet.gesture_sequence.length ? 120 : 80)
-    });
-
-    floatingWidgets.log(`[D3] Intent: ${packet.intent_class} (${packet.emotion})`);
-
-    // Handle tool summon / terminal intent
-    if (packet.intent_class.includes('terminal') || packet.intent_class.includes('architecture')) {
-      floatingWidgets.setTerminalVisible(true);
+  // 11. Audio & Microphone Settings Drawer
+  const audioDrawer = new AudioSettingsDrawer({
+    onRequestPermission: async () => {
+      try {
+        await speechSensor.start();
+        btnMic.textContent = '🎙 MIC: ACTIVE';
+        btnMic.classList.add('holo-btn-active');
+        floatingWidgets.log('[MIC] Microphone granted & listening.');
+        return true;
+      } catch (e) {
+        floatingWidgets.log('[MIC ERR] Access denied.');
+        return false;
+      }
+    },
+    onDeviceSelect: (deviceId: string) => {
+      floatingWidgets.log(`[MIC] Selected device: ${deviceId}`);
+    },
+    onSettingsChange: (settings: AudioSettingsData) => {
+      floatingWidgets.log(`[MIC DSP] VAD Thresh: ${settings.energyThreshold}, Lang: ${settings.language}`);
     }
-
-    if (packet.intent_class.includes('sub_agent') || packet.intent_class.includes('tool')) {
-      const subId = `worker-${Math.floor(Math.random() * 900 + 100)}`;
-      floatingWidgets.spawnSubAgent(subId, 'Reasoner-Node');
-      setTimeout(() => floatingWidgets.dismissSubAgent(subId), 4000);
-    }
-
-    // Queue gesture sequence
-    gestureStartTime = performance.now();
-    gestureKeyframeQueue = packet.gesture_sequence.map(kf => ({
-      triggerMs: kf.trigger_ms,
-      durationMs: kf.duration_ms,
-      preset: kf.base_preset,
-      weight: kf.blend_weight,
-      overrides: kf.bone_angle_overrides_deg || {}
-    }));
   });
 
-  wsClient.connect();
-
-  // 11. Multi-Format Rig Studio & Model Configuration Drawer
+  // 12. Multi-Format Rig Studio & Model Configuration Drawer
   const rigDrawer = new RigStudioDrawer({
     onBoneSelect: (boneName) => {
       floatingWidgets.log(`Selected bone: ${boneName}`);
@@ -163,10 +190,7 @@ async function bootstrapHologramApp() {
       }
     },
     onModelLoaded: (customModel: LoadedRiggedModel) => {
-      // Unmount previous avatar
       stage.scene.remove(activeModelRoot);
-
-      // Mount new custom model
       activeModelRoot = customModel.root;
       activeBones = customModel.canonicalJointMap || new Map();
       activeJawBone = customModel.canonicalJointMap?.get(Joint28.jaw) || null;
@@ -207,7 +231,8 @@ async function bootstrapHologramApp() {
   detectedNames.forEach(name => { initialMap[name] = name; });
   rigDrawer.populateJoints(detectedNames, initialMap);
 
-  // 12. Optical Stage Calibrator
+  // 13. Optical Stage Calibrator
+  let isProjectionMode = false;
   const calibPanel = new StageCalibPanel({
     onChange: (settings: StageCalibSettings) => {
       stage.camera.fov = settings.compensatedFovDeg;
@@ -220,11 +245,117 @@ async function bootstrapHologramApp() {
           flipY: settings.flipY,
         }
       });
+      document.body.classList.toggle('holo-mirror-horizontal', settings.flipX);
       floatingWidgets.log(`[CALIB] Reflector: ${settings.glassAngleDeg}°, FOV: ${settings.compensatedFovDeg}°`);
+    },
+    onFullscreenToggle: () => {
+      toggleFullscreenProjection();
+    },
+    onIPSOptimizationChange: (enabled: boolean, exposure: number) => {
+      stage.setIPSOptimization(enabled, exposure);
+      floatingWidgets.log(`[IPS BOOST] ${enabled ? 'ACTIVE' : 'OFF'} (Exposure: ${exposure.toFixed(2)}x)`);
     }
   });
 
-  // 13. Sleek Floating Command Bar
+  // 14. Fullscreen Pepper's Ghost Projection Mode Handlers
+  const toggleFullscreenProjection = async (force?: boolean) => {
+    const isFs = await stage.toggleFullscreen(force);
+    isProjectionMode = isFs;
+    document.body.classList.toggle('holo-projection-mode', isFs);
+
+    const toast = document.getElementById('holo-projection-toast');
+    if (toast && isFs) {
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 3500);
+    }
+  };
+
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement) {
+      isProjectionMode = false;
+      document.body.classList.remove('holo-projection-mode');
+    }
+  });
+
+  // Double click canvas to toggle Fullscreen
+  container.addEventListener('dblclick', () => {
+    toggleFullscreenProjection();
+  });
+
+  // Create Toast & Floating Exit Button
+  const exitBtn = document.createElement('button');
+  exitBtn.id = 'btn-exit-projection';
+  exitBtn.textContent = '✕ EXIT FULLSCREEN';
+  exitBtn.addEventListener('click', () => toggleFullscreenProjection(false));
+  document.body.appendChild(exitBtn);
+
+  const toastEl = document.createElement('div');
+  toastEl.id = 'holo-projection-toast';
+  toastEl.textContent = '⛶ FULLSCREEN OPTICAL MODE ACTIVE — Double-click screen or press ESC to exit';
+  document.body.appendChild(toastEl);
+
+  // 15. Wire WebSocket Handlers
+  wsClient.onStatus((status) => {
+    floatingWidgets.log(`[WS] Status changed: ${status.toUpperCase()}`);
+    if (status === 'connected') {
+      telemetryHUD.updateData({ shaderState: 'cyan_nominative' });
+    }
+  });
+
+  wsClient.onRTT((rttMs) => {
+    telemetryHUD.updateData({ rttMs });
+  });
+
+  wsClient.onAudio((_header, pcmSamples) => {
+    audioPlayer.playChunk(pcmSamples);
+    telemetryHUD.updateData({ speechState: 'SPEAKING' });
+  });
+
+  let gestureKeyframeQueue: Array<{
+    triggerMs: number;
+    durationMs: number;
+    preset: string;
+    weight: number;
+    overrides: Record<string, [number, number, number]>;
+  }> = [];
+  let gestureStartTime = performance.now();
+
+  wsClient.onKinematics((packet: D3KinematicPacket) => {
+    telemetryHUD.updateData({
+      intentClass: packet.intent_class,
+      emotion: packet.emotion,
+      shaderState: packet.holo_shader_state,
+      d3LatencyMs: Math.round(packet.gesture_sequence.length ? 120 : 80)
+    });
+
+    floatingWidgets.log(`[D3] Intent: ${packet.intent_class} (${packet.emotion})`);
+    aiModal.log(`[D3 GESTURE]: ${packet.intent_class} (${packet.emotion})`);
+
+    // Handle tool summon / terminal intent
+    if (packet.intent_class.includes('terminal') || packet.intent_class.includes('architecture')) {
+      floatingWidgets.setTerminalVisible(true);
+    }
+
+    if (packet.intent_class.includes('sub_agent') || packet.intent_class.includes('tool')) {
+      const subId = `worker-${Math.floor(Math.random() * 900 + 100)}`;
+      floatingWidgets.spawnSubAgent(subId, 'Reasoner-Node');
+      setTimeout(() => floatingWidgets.dismissSubAgent(subId), 4000);
+    }
+
+    // Queue gesture sequence
+    gestureStartTime = performance.now();
+    gestureKeyframeQueue = packet.gesture_sequence.map(kf => ({
+      triggerMs: kf.trigger_ms,
+      durationMs: kf.duration_ms,
+      preset: kf.base_preset,
+      weight: kf.blend_weight,
+      overrides: kf.bone_angle_overrides_deg || {}
+    }));
+  });
+
+  wsClient.connect();
+
+  // 16. Floating Command Bar (Top Navigation)
   const topBar = document.createElement('div');
   topBar.className = 'holo-top-bar';
   topBar.innerHTML = `
@@ -233,7 +364,10 @@ async function bootstrapHologramApp() {
       XEROHOLOGRAM
     </div>
     <button id="btn-toggle-mic" class="holo-btn holo-btn-cyan">🎙 MIC STREAM</button>
+    <button id="btn-open-mic-settings" class="holo-btn holo-btn-secondary">⚙ MIC DSP</button>
+    <button id="btn-open-ai-core" class="holo-btn holo-btn-secondary">🧠 AI CORE</button>
     <button id="btn-open-rig-studio" class="holo-btn holo-btn-secondary">📦 3D AVATAR & RIG</button>
+    <button id="btn-fullscreen-proj" class="holo-btn holo-btn-cyan">⛶ PROJECTION</button>
     <button id="btn-toggle-terminal" class="holo-btn holo-btn-secondary">💻 WRIST HUD</button>
     <button id="btn-spawn-clone" class="holo-btn holo-btn-secondary">✨ SPAWN AGENT</button>
     <button id="btn-open-calib" class="holo-btn holo-btn-secondary">📐 STAGE CALIB</button>
@@ -257,6 +391,18 @@ async function bootstrapHologramApp() {
     }
   });
 
+  const btnMicSettings = topBar.querySelector('#btn-open-mic-settings');
+  btnMicSettings?.addEventListener('click', () => audioDrawer.toggle());
+
+  const btnAICore = topBar.querySelector('#btn-open-ai-core');
+  btnAICore?.addEventListener('click', () => aiModal.toggle());
+
+  const btnRig = topBar.querySelector('#btn-open-rig-studio');
+  btnRig?.addEventListener('click', () => rigDrawer.toggle());
+
+  const btnFullscreen = topBar.querySelector('#btn-fullscreen-proj');
+  btnFullscreen?.addEventListener('click', () => toggleFullscreenProjection());
+
   const btnTerminal = topBar.querySelector('#btn-toggle-terminal') as HTMLButtonElement;
   btnTerminal.addEventListener('click', () => {
     const isVis = !floatingWidgets.isTerminalVisible();
@@ -276,13 +422,10 @@ async function bootstrapHologramApp() {
     setTimeout(() => floatingWidgets.dismissSubAgent(subId), 5000);
   });
 
-  const btnRig = topBar.querySelector('#btn-open-rig-studio');
-  btnRig?.addEventListener('click', () => rigDrawer.toggle());
-
   const btnCalib = topBar.querySelector('#btn-open-calib');
   btnCalib?.addEventListener('click', () => calibPanel.toggle());
 
-  // 14. 60 FPS Main Render & Physics Hook
+  // 17. 60 FPS Main Render & Physics Hook
   stage.registerRenderHook((delta, elapsed) => {
     const now = performance.now();
     telemetryHUD.tick(delta * 1000);
@@ -328,6 +471,7 @@ async function bootstrapHologramApp() {
     const freqData = audioPlayer.getFrequencyData();
     const viseme = visemeAnalyzer.analyze(freqData, delta);
     telemetryHUD.updateData({ visemeEnergy: viseme.rmsEnergy });
+    audioDrawer.updateVUMeter(viseme.rmsEnergy);
 
     // F. Reactor Core Voice Pulse & Visor Glow (if default rig)
     if (!isCustomLoaded) {
