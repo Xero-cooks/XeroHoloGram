@@ -1,0 +1,30 @@
+{
+  "name": "xerohologram",
+  "version": "1.0.0",
+  "description": "Ultra-low-latency 3D Holographic AI Agent Harness and Universal Rigged-Character Engine for Pepper's Ghost optical stages and 3D web viewports",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev:frontend": "bun --cwd frontend dev",
+    "dev:backend": "python -m uvicorn backend.app.main:app --reload --port 8765",
+    "build:frontend": "bun --cwd frontend build",
+    "test:frontend": "bun test frontend/tests",
+    "test:backend": "python -m pytest backend/tests"
+  },
+  "keywords": [
+    "hologram",
+    "peppers-ghost",
+    "threejs",
+    "webgl",
+    "ai-agent",
+    "kinematics",
+    "visemes",
+    "lip-sync",
+    "fastapi",
+    "tts"
+  ],
+  "author": "Xero-cooks",
+  "license": "Apache-2.0"
+}
