@@ -33,3 +33,20 @@ app.add_middleware(
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "service": "XeroHoloGram", "version": "1.0.0"}
+
+
+@app.get("/api/status")
+async def get_system_status():
+    from backend.app.multiplexer import llm_client, d3_engine, connection_manager
+    return {
+        "status": "online",
+        "service": "XeroHoloGram Hologram Daemon",
+        "active_sessions": len(connection_manager.active_connections),
+        "llm_model": getattr(llm_client, "model", "gpt-4o-mini"),
+        "llm_base_url": getattr(llm_client, "base_url", "https://api.openai.com/v1"),
+        "d3_engine": "active_so3"
+    }
+
+
+# Register WebSocket and Multiplexer routes
+import backend.app.multiplexer  # noqa: F401, E402

@@ -101,10 +101,10 @@ async def websocket_hologram_endpoint(websocket: WebSocket, session_id: str = "d
             data = await websocket.receive_json()
             msg_type = data.get("type")
 
-            if msg_type == "speech_interim":
+            if msg_type in ("speech_interim", "interim_transcript"):
                 prewarmer.on_interim_text(session_id, data.get("text", ""))
 
-            elif msg_type == "speech_final":
+            elif msg_type in ("speech_final", "final_transcript", "prompt_test", "prompt_request"):
                 text = data.get("text", "")
                 if session.in_flight_task and not session.in_flight_task.done():
                     session.in_flight_task.cancel()
@@ -116,8 +116,28 @@ async def websocket_hologram_endpoint(websocket: WebSocket, session_id: str = "d
             elif msg_type == "barge_in":
                 await barge_in_handler.handle_barge_in(session_id, state_machine, session.in_flight_task)
 
-            elif msg_type == "heartbeat":
-                await connection_manager.send_json(session_id, {"type": "heartbeat_ack", "timestamp": data.get("timestamp_ms")})
+            elif msg_type in ("heartbeat", "ping"):
+                ts = data.get("timestamp", data.get("timestamp_ms", 0))
+                await connection_manager.send_json(session_id, {"type": "pong", "timestamp": ts})
+
+            elif msg_type == "llm_config":
+                if "base_url" in data and data["base_url"]:
+                    llm_client.base_url = data["base_url"].rstrip("/")
+                if "api_key" in data and data["api_key"]:
+                    llm_client.api_key = data["api_key"]
+                if "model" in data and data["model"]:
+                    llm_client.model = data["model"]
+                if "system_prompt" in data and data["system_prompt"]:
+                    llm_client.system_prompt = data["system_prompt"]
+                if "tts_voice" in data and data["tts_voice"]:
+                    default_tts._voice = data["tts_voice"]
+
+                await connection_manager.send_json(session_id, {
+                    "type": "config_ack",
+                    "status": "updated",
+                    "model": llm_client.model,
+                    "tts_voice": getattr(default_tts, "_voice", "default")
+                })
 
     except WebSocketDisconnect:
         connection_manager.disconnect(session_id)
