@@ -11,7 +11,7 @@ import { PoseBlender } from './kinematics/PoseBlender';
 import { AudioStreamPlayer } from './audio/AudioStreamPlayer';
 import { VisemeAnalyzer } from './audio/VisemeAnalyzer';
 import { SpeechSensor } from './audio/SpeechSensor';
-import { HoloSocketClient, D3KinematicPacket } from './network/HoloSocketClient';
+import { HoloSocketClient, D3KinematicPacket, AgenticDecisionPacket, ToolActionCall } from './network/HoloSocketClient';
 import { FloatingWidgets } from './shaders/FloatingWidgets';
 import { RigStudioDrawer } from './ui/RigStudioDrawer';
 import { StageCalibPanel, StageCalibSettings } from './ui/StageCalibPanel';
@@ -351,6 +351,49 @@ async function bootstrapHologramApp() {
       weight: kf.blend_weight,
       overrides: kf.bone_angle_overrides_deg || {}
     }));
+  });
+
+  // Handle Structured Decision LLM Packets
+  wsClient.onDecision((decision: AgenticDecisionPacket) => {
+    aiModal.renderDecisionCard(decision);
+    aiModal.log(`[DECISION ${decision.intent_class.toUpperCase()}]: "${decision.speech_response}"`);
+    floatingWidgets.log(`[POLICY DECISION] ${decision.intent_class} (${Math.round(decision.confidence * 100)}% conf)`);
+
+    telemetryHUD.updateData({
+      intentClass: decision.intent_class,
+      emotion: decision.emotion,
+      shaderState: decision.holo_shader_state,
+      d3LatencyMs: Math.round(decision.gesture_sequence.length ? 115 : 65)
+    });
+
+    // Update Fresnel Shader Palette according to decision state
+    const shaderColorMap: Record<string, number> = {
+      cyan_nominative: 0x00f0ff,
+      magenta_glitch: 0xff0055,
+      emerald_healed: 0x00ff9d,
+      amber_warning: 0xffaa00,
+      deep_blue_focus: 0x0088ff
+    };
+    if (decision.holo_shader_state in shaderColorMap) {
+      proceduralRig.setShaderColor?.(shaderColorMap[decision.holo_shader_state]);
+    }
+  });
+
+  // Handle Tool Action Triggers
+  wsClient.onToolAction((tool: ToolActionCall) => {
+    floatingWidgets.log(`[TOOL TRIGGER] ${tool.name}`);
+
+    if (tool.name === 'summon_wrist_terminal') {
+      floatingWidgets.setTerminalVisible(true);
+    } else if (tool.name === 'spawn_subagent') {
+      const subId = tool.parameters?.worker_id || `worker-${Math.floor(Math.random() * 900 + 100)}`;
+      floatingWidgets.spawnSubAgent(subId, 'Task Coordinator');
+      setTimeout(() => floatingWidgets.dismissSubAgent(subId), 5000);
+    } else if (tool.name === 'execute_quantum_heal') {
+      particles.setIntensity(0.7);
+      setTimeout(() => particles.setIntensity(0.38), 2000);
+      floatingWidgets.log('[QUANTUM HEAL] Restoring canonical SO(3) rest pose.');
+    }
   });
 
   wsClient.connect();
