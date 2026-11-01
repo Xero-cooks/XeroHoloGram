@@ -35,7 +35,27 @@ export interface D3KinematicPacket {
   gesture_sequence: D3GestureKeyframe[];
 }
 
+export interface ToolActionCall {
+  name: string;
+  parameters: Record<string, any>;
+}
+
+export interface AgenticDecisionPacket {
+  type?: 'decision_packet';
+  thought_trace?: string;
+  intent_class: string;
+  confidence: number;
+  speech_response: string;
+  emotion: string;
+  gaze_vector: { x: number; y: number; z: number } | [number, number, number];
+  holo_shader_state: string;
+  tool_call?: ToolActionCall | null;
+  gesture_sequence: D3GestureKeyframe[];
+}
+
 export type KinematicPacketCallback = (packet: D3KinematicPacket) => void;
+export type DecisionPacketCallback = (packet: AgenticDecisionPacket) => void;
+export type ToolActionCallback = (tool: ToolActionCall) => void;
 export type AudioChunkCallback = (header: WSBinaryAudioHeader, pcmData: Float32Array) => void;
 export type StatusCallback = (status: 'connected' | 'disconnected' | 'reconnecting' | 'error') => void;
 export type RTTCallback = (rttMs: number) => void;
@@ -54,6 +74,8 @@ export class HoloSocketClient {
 
   // Callbacks
   private kinematicCallbacks: Set<KinematicPacketCallback> = new Set();
+  private decisionCallbacks: Set<DecisionPacketCallback> = new Set();
+  private toolCallbacks: Set<ToolActionCallback> = new Set();
   private audioCallbacks: Set<AudioChunkCallback> = new Set();
   private statusCallbacks: Set<StatusCallback> = new Set();
   private rttCallbacks: Set<RTTCallback> = new Set();
@@ -135,6 +157,20 @@ export class HoloSocketClient {
         return;
       }
 
+      // Handle Structured Decision Packet (Decision LLM)
+      if (data.type === 'decision_packet') {
+        this.decisionCallbacks.forEach(cb => cb(data as AgenticDecisionPacket));
+      }
+
+      // Handle Tool Action Trigger
+      if (data.type === 'tool_action_trigger') {
+        const tool: ToolActionCall = {
+          name: data.name,
+          parameters: data.parameters || {}
+        };
+        this.toolCallbacks.forEach(cb => cb(tool));
+      }
+
       // Handle D3 Kinematic Response
       if (data.type === 'd3_kinematics' || (data.gesture_sequence && Array.isArray(data.gesture_sequence))) {
         this.kinematicCallbacks.forEach(cb => cb(data as D3KinematicPacket));
@@ -198,6 +234,16 @@ export class HoloSocketClient {
   public onKinematics(cb: KinematicPacketCallback): () => void {
     this.kinematicCallbacks.add(cb);
     return () => this.kinematicCallbacks.delete(cb);
+  }
+
+  public onDecision(cb: DecisionPacketCallback): () => void {
+    this.decisionCallbacks.add(cb);
+    return () => this.decisionCallbacks.delete(cb);
+  }
+
+  public onToolAction(cb: ToolActionCallback): () => void {
+    this.toolCallbacks.add(cb);
+    return () => this.toolCallbacks.delete(cb);
   }
 
   public onAudio(cb: AudioChunkCallback): () => void {
