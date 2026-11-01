@@ -63,28 +63,148 @@ async function bootstrapHologramApp() {
   const audioPlayer = new AudioStreamPlayer(24000);
   const visemeAnalyzer = new VisemeAnalyzer(24000, 512);
 
+  // Global user interaction listener to unlock AudioContext autoplay policies
+  const unlockAudio = () => audioPlayer.unlockAudioContext();
+  window.addEventListener('pointerdown', unlockAudio, { passive: true });
+  window.addEventListener('keydown', unlockAudio, { passive: true });
+
   // 7. Full-Duplex Multiplexer WebSocket Client
   const wsClient = new HoloSocketClient(DEFAULT_STAGE_CONFIG.wsEndpoint);
 
   // 8. Telemetry HUD & Diagnostics
   const telemetryHUD = new TelemetryHUD();
 
-  // 9. Speech Sensor (Web Speech STT + WebAudio VAD)
+  // Agent Vocalization State & Jaw Articulation Controller
+  let isAgentSpeaking = false;
+  let jawArticOffset = 0.0;
+  let jawSpeechInterval: any = null;
+
+  const stopAgentSpeech = () => {
+    isAgentSpeaking = false;
+    audioPlayer.flush();
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    if (jawSpeechInterval) {
+      clearInterval(jawSpeechInterval);
+      jawSpeechInterval = null;
+    }
+    jawArticOffset = 0.0;
+    if (activeJawBone) {
+      activeJawBone.rotation.x = 0;
+    }
+  };
+
+  const speakAgentResponse = (speechText: string, binaryMp3Chunk?: ArrayBuffer) => {
+    if (!speechText && !binaryMp3Chunk) return;
+
+    stopAgentSpeech();
+    isAgentSpeaking = true;
+    audioPlayer.unlockAudioContext();
+    telemetryHUD.updateData({ speechState: 'SPEAKING' });
+
+    // Live Jaw Articulation Cadence for Spoken Speech Synchronization
+    let phase = 0;
+    jawSpeechInterval = setInterval(() => {
+      if (!isAgentSpeaking) {
+        clearInterval(jawSpeechInterval);
+        jawSpeechInterval = null;
+        jawArticOffset = 0.0;
+        return;
+      }
+      phase += 0.38;
+      jawArticOffset = 0.04 + Math.abs(Math.sin(phase)) * 0.18;
+      if (activeJawBone) {
+        activeJawBone.rotation.x = jawArticOffset;
+      }
+    }, 33);
+
+    const ttsCfg = aiModal.getTTSConfig();
+
+    // If streaming binary MP3 chunks from EdgeTTS backend and user chose edge_tts
+    if (binaryMp3Chunk && binaryMp3Chunk.byteLength > 16 && ttsCfg.engine === 'edge_tts') {
+      audioPlayer.playEncodedChunk(binaryMp3Chunk).then(() => {
+        // Chunk finished
+      }).catch(() => {
+        // Fallback to browser SpeechSynthesis if chunk decoding failed
+        speakViaSpeechSynthesis(speechText);
+      });
+      return;
+    }
+
+    // High-Loudness Voice Output via Web Speech Synthesis (100% Reliable, Loud, Clear)
+    speakViaSpeechSynthesis(speechText);
+  };
+
+  const speakViaSpeechSynthesis = (text: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      telemetryHUD.updateData({ speechState: 'IDLE' });
+      isAgentSpeaking = false;
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.volume = 1.0; // 100% Maximum Loudness
+    utterance.rate = 1.03;  // Natural conversational speed
+    utterance.pitch = 0.95; // Resonant timbre
+
+    // Select the best available natural English voice
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v => 
+      v.lang.startsWith('en') && (
+        v.name.includes('David') || 
+        v.name.includes('Mark') || 
+        v.name.includes('Guy') || 
+        v.name.includes('Christopher') || 
+        v.name.includes('Aria') ||
+        v.name.includes('Natural') ||
+        v.name.includes('Google US English')
+      )
+    ) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+
+    if (preferred) {
+      utterance.voice = preferred;
+    }
+
+    utterance.onstart = () => {
+      isAgentSpeaking = true;
+      telemetryHUD.updateData({ speechState: 'SPEAKING' });
+    };
+
+    utterance.onend = () => {
+      stopAgentSpeech();
+      telemetryHUD.updateData({ speechState: 'IDLE' });
+      currentBasePose = 'neutral';
+    };
+
+    utterance.onerror = () => {
+      stopAgentSpeech();
+      telemetryHUD.updateData({ speechState: 'IDLE' });
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // 9. Speech Sensor (Hybrid Web Speech STT + Adaptive VAD with Silence Endpointing)
   const speechSensor = new SpeechSensor({
     onVADSpeechStart: () => {
-      // Immediate Barge-In reflex (<30ms)
-      if (audioPlayer.getPlaybackRemainingSec() > 0.05) {
-        audioPlayer.flush();
+      // Immediate Barge-In reflex: Interrupt agent if already vocalizing
+      if (isAgentSpeaking || audioPlayer.getPlaybackRemainingSec() > 0.05) {
+        stopAgentSpeech();
         wsClient.sendBargeIn();
-        floatingWidgets.log('[BARGE-IN] Interrupted speech playback');
+        floatingWidgets.log('[BARGE-IN] Interrupted agent speech playback');
         telemetryHUD.updateData({ speechState: 'INTERRUPTED' });
       } else {
-        telemetryHUD.updateData({ speechState: 'LISTENING' });
+        telemetryHUD.updateData({ speechState: 'USER_SPEAKING' });
       }
 
-      // Transition to listening_attentive pose
+      // Responsive listening posture
       currentBasePose = 'listening_attentive';
       currentOverrides = {};
+    },
+    onVADSpeechEnd: () => {
+      floatingWidgets.log('[VAD] Speech offset detected; awaiting silence endpoint...');
     },
     onInterimStable: (interimText: string) => {
       telemetryHUD.updateData({ speechState: 'SPECULATIVE' });
@@ -93,10 +213,18 @@ async function bootstrapHologramApp() {
       aiModal.log(`[STT INTERIM] "${interimText}"`);
     },
     onFinalTranscript: (finalText: string) => {
-      telemetryHUD.updateData({ speechState: 'SPEAKING' });
+      // TURN ENDPOINT TRIGGERED: User has stopped speaking!
+      telemetryHUD.updateData({ speechState: 'THINKING' });
+      currentBasePose = 'finger_up_insight';
       wsClient.sendTranscript(finalText, true);
-      floatingWidgets.log(`[STT FINAL] "${finalText}"`);
+      floatingWidgets.log(`[USER TURN COMMIT] "${finalText}"`);
       aiModal.log(`[YOU]: "${finalText}"`);
+    },
+    onRMSUpdate: (rms: number, isSpeaking: boolean) => {
+      audioDrawer.updateVUMeter(rms);
+      if (isSpeaking && telemetryHUD.getData().speechState !== 'INTERRUPTED') {
+        telemetryHUD.updateData({ speechState: 'USER_SPEAKING' });
+      }
     }
   });
 
@@ -124,7 +252,8 @@ async function bootstrapHologramApp() {
     },
     onSendTestPrompt: (promptText: string) => {
       floatingWidgets.log(`[PROMPT] "${promptText}"`);
-      telemetryHUD.updateData({ speechState: 'SPEAKING' });
+      telemetryHUD.updateData({ speechState: 'THINKING' });
+      currentBasePose = 'finger_up_insight';
 
       // Send to WebSocket backend
       wsClient.sendJSON({
@@ -132,43 +261,30 @@ async function bootstrapHologramApp() {
         text: promptText,
         client_timestamp: performance.now()
       });
-
-      // Browser TTS Fallback if user selected browser_tts or backend is offline
-      const currentTTS = aiModal.getTTSConfig();
-      if (currentTTS.engine === 'browser_tts' || typeof window.speechSynthesis !== 'undefined') {
-        const u = new SpeechSynthesisUtterance(promptText);
-        u.pitch = 0.9;
-        u.rate = 1.05;
-        // Trigger responsive gesture
-        currentBasePose = 'hand_up_ack';
-        setTimeout(() => { currentBasePose = 'finger_up_insight'; }, 1200);
-        setTimeout(() => { currentBasePose = 'neutral'; }, 3200);
-      }
     },
-    onTestVoiceSample: (sampleText: string, voiceName: string) => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(sampleText);
-        u.pitch = 0.92;
-        u.rate = 1.0;
-        window.speechSynthesis.speak(u);
-      }
+    onTestVoiceSample: (sampleText: string, _voiceName: string) => {
+      speakAgentResponse(sampleText);
       currentBasePose = 'hand_up_ack';
-      setTimeout(() => { currentBasePose = 'neutral'; }, 2500);
+      setTimeout(() => { currentBasePose = 'neutral'; }, 2800);
     }
   });
+
+  // Declare btnMic reference variable for access by drawer
+  let btnMicElement: HTMLButtonElement | null = null;
 
   // 11. Audio & Microphone Settings Drawer
   const audioDrawer = new AudioSettingsDrawer({
     onRequestPermission: async () => {
       try {
         await speechSensor.start();
-        btnMic.innerHTML = `${ICONS.mic} MIC: ACTIVE`;
-        btnMic.classList.add('holo-btn-active');
-        floatingWidgets.log('[MIC] Microphone granted & listening.');
+        if (btnMicElement) {
+          btnMicElement.innerHTML = `${ICONS.mic} MIC: ACTIVE`;
+          btnMicElement.classList.add('holo-btn-active');
+        }
+        floatingWidgets.log('[MIC] Microphone granted & hybrid VAD/STT listening.');
         return true;
       } catch (e) {
-        floatingWidgets.log('[MIC ERR] Access denied.');
+        floatingWidgets.log('[MIC ERR] Microphone access denied.');
         return false;
       }
     },
@@ -176,7 +292,11 @@ async function bootstrapHologramApp() {
       floatingWidgets.log(`[MIC] Selected device: ${deviceId}`);
     },
     onSettingsChange: (settings: AudioSettingsData) => {
-      floatingWidgets.log(`[MIC DSP] VAD Thresh: ${settings.energyThreshold}, Lang: ${settings.language}`);
+      speechSensor.setEnergyThreshold(settings.energyThreshold);
+      speechSensor.setSpeechHangoverMs(settings.hangoverMs);
+      speechSensor.setSilenceEndpointMs(settings.silenceEndpointMs);
+      speechSensor.setLanguage(settings.language);
+      floatingWidgets.log(`[MIC DSP] Thresh: ${settings.energyThreshold}, Hangover: ${settings.hangoverMs}ms, Endpoint: ${settings.silenceEndpointMs}ms, Lang: ${settings.language}`);
     }
   });
 
@@ -312,6 +432,12 @@ async function bootstrapHologramApp() {
     telemetryHUD.updateData({ speechState: 'SPEAKING' });
   });
 
+  wsClient.onRawAudio((_header, rawPayload) => {
+    if (rawPayload && rawPayload.byteLength > 16) {
+      audioPlayer.playEncodedChunk(rawPayload);
+    }
+  });
+
   let gestureKeyframeQueue: Array<{
     triggerMs: number;
     durationMs: number;
@@ -359,6 +485,11 @@ async function bootstrapHologramApp() {
     aiModal.renderDecisionCard(decision);
     aiModal.log(`[DECISION ${decision.intent_class.toUpperCase()}]: "${decision.speech_response}"`);
     floatingWidgets.log(`[POLICY DECISION] ${decision.intent_class} (${Math.round(decision.confidence * 100)}% conf)`);
+
+    // LOUD VOICE SYNTHESIS: Make the agent speak the decision answer immediately!
+    if (decision.speech_response && decision.speech_response.trim().length > 0) {
+      speakAgentResponse(decision.speech_response);
+    }
 
     telemetryHUD.updateData({
       intentClass: decision.intent_class,
@@ -420,6 +551,7 @@ async function bootstrapHologramApp() {
 
   let isMicActive = false;
   const btnMic = topBar.querySelector('#btn-toggle-mic') as HTMLButtonElement;
+  btnMicElement = btnMic;
   btnMic.addEventListener('click', async () => {
     isMicActive = !isMicActive;
     if (isMicActive) {
@@ -550,7 +682,7 @@ async function bootstrapHologramApp() {
 
     // H. Articulate Jaw Bone for Lip-Sync
     if (activeJawBone) {
-      activeJawBone.rotation.x = viseme.jawPitchRad;
+      activeJawBone.rotation.x = Math.max(viseme.jawPitchRad, jawArticOffset);
     }
 
     // I. Update Floating Widgets (Wrist Terminal Attachment & Sub-Agent Animations)
