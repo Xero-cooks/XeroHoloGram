@@ -1,0 +1,17 @@
+{
+  "name": "4-Sided Holographic Pyramid Stage",
+  "mountType": "pyramid_4",
+  "flipX": true,
+  "flipY": true,
+  "glassAngleDeg": 52.5,
+  "glassThicknessMm": 3.0,
+  "fovCompensation": true,
+  "customFovMultiplier": 0.85,
+  "keystone": {
+    "enabled": true,
+    "topLeft": [0.08, 0.05],
+    "topRight": [0.92, 0.05],
+    "bottomRight": [1.0, 0.98],
+    "bottomLeft": [0.0, 0.98]
+  }
+}

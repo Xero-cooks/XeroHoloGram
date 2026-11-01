@@ -1,0 +1,17 @@
+{
+  "name": "Standard Flat 3D Web Viewport",
+  "mountType": "flat_viewport",
+  "flipX": false,
+  "flipY": false,
+  "glassAngleDeg": 0.0,
+  "glassThicknessMm": 0.0,
+  "fovCompensation": false,
+  "customFovMultiplier": 1.0,
+  "keystone": {
+    "enabled": false,
+    "topLeft": [0, 0],
+    "topRight": [1, 0],
+    "bottomRight": [1, 1],
+    "bottomLeft": [0, 1]
+  }
+}

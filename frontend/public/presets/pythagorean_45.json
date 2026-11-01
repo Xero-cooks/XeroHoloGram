@@ -1,0 +1,17 @@
+{
+  "name": "Single 45° Pythagorean Reflector",
+  "mountType": "pythagorean_45",
+  "flipX": true,
+  "flipY": false,
+  "glassAngleDeg": 45.0,
+  "glassThicknessMm": 4.0,
+  "fovCompensation": true,
+  "customFovMultiplier": 1.0,
+  "keystone": {
+    "enabled": false,
+    "topLeft": [0, 0],
+    "topRight": [1, 0],
+    "bottomRight": [1, 1],
+    "bottomLeft": [0, 1]
+  }
+}
