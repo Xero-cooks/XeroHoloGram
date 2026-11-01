@@ -1,5 +1,8 @@
 from typing import AsyncGenerator
-import edge_tts
+try:
+    import edge_tts
+except ImportError:
+    edge_tts = None
 from backend.app.tts.base_adapter import BaseTTSAdapter
 
 
@@ -20,6 +23,11 @@ class EdgeTTSAdapter(BaseTTSAdapter):
 
     async def synthesize_stream(self, text: str) -> AsyncGenerator[bytes, None]:
         if not text.strip():
+            return
+
+        if edge_tts is None:
+            # Fallback mock audio for development
+            yield b"\x00" * 960
             return
 
         try:
