@@ -1,73 +1,121 @@
 /**
  * holo-ui.css
- * Cybernetic Glassmorphic UI styles for Agentic-Hologram & Pepper's Ghost Viewport
- * Strict rule: All container canvases and backdrop layers remain 100% black (#000000)
- * to prevent ambient light bleed into the physical 45-degree beam splitter.
+ * High-End Cybernetic Glassmorphic UI & Design System for XeroHoloGram
+ * Typography: Modern Clean System Display + Precision Monospace
+ * Backdrop: Pure #000000 black canvas void preserved for Pepper's Ghost transparency
  */
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 :root {
-  --holo-cyan: #00f3ff;
-  --holo-cyan-glow: rgba(0, 243, 255, 0.4);
+  --holo-cyan: #00f0ff;
+  --holo-cyan-glow: rgba(0, 240, 255, 0.35);
+  --holo-cyan-dim: rgba(0, 240, 255, 0.12);
+  --holo-purple: #8b5cf6;
+  --holo-purple-glow: rgba(139, 92, 246, 0.35);
   --holo-green: #10b981;
   --holo-gold: #f59e0b;
   --holo-red: #ff0055;
-  --holo-bg-glass: rgba(2, 12, 28, 0.88);
-  --holo-border: rgba(0, 243, 255, 0.28);
-  --holo-font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
+  --holo-bg-glass: rgba(4, 15, 30, 0.88);
+  --holo-bg-card: rgba(8, 25, 48, 0.75);
+  --holo-border: rgba(0, 240, 255, 0.22);
+  --holo-border-bright: rgba(0, 240, 255, 0.55);
+  --holo-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --holo-font-mono: 'JetBrains Mono', 'Consolas', monospace;
 }
 
-/* Floating Top Navigation Bar */
+/* ====================================================================
+   FLOATING COMMAND BAR (TOP NAVIGATION)
+   ==================================================================== */
 .holo-top-bar {
   position: absolute;
-  top: 16px;
+  top: 18px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 12px;
+  align-items: center;
+  gap: 8px;
   background: var(--holo-bg-glass);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--holo-border);
-  border-radius: 24px;
-  padding: 6px 16px;
+  border-radius: 40px;
+  padding: 6px 14px;
   z-index: 100;
-  box-shadow: 0 4px 20px rgba(0, 243, 255, 0.15);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 240, 255, 0.15);
 }
 
-/* Common Cybernetic Buttons */
-.holo-btn {
-  font-family: var(--holo-font-mono);
+.holo-brand-badge {
+  font-family: var(--holo-font-sans);
   font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: var(--holo-cyan);
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-right: 1px solid rgba(0, 240, 255, 0.2);
+  margin-right: 4px;
+}
+
+.holo-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--holo-green);
+  box-shadow: 0 0 8px var(--holo-green);
+  animation: pulse-dot 2s infinite ease-in-out;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+/* ====================================================================
+   CYBERNETIC BUTTONS
+   ==================================================================== */
+.holo-btn {
+  font-family: var(--holo-font-sans);
+  font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: 0.5px;
-  padding: 7px 14px;
-  border-radius: 6px;
+  letter-spacing: 0.4px;
+  padding: 7px 13px;
+  border-radius: 20px;
   border: 1px solid var(--holo-border);
-  background: rgba(0, 243, 255, 0.08);
+  background: rgba(0, 240, 255, 0.06);
   color: #e2e8f0;
   cursor: pointer;
-  transition: all 0.2s ease-in-out;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-flex;
   align-items: center;
   gap: 6px;
   user-select: none;
+  white-space: nowrap;
 }
 
 .holo-btn:hover {
-  background: rgba(0, 243, 255, 0.22);
+  background: rgba(0, 240, 255, 0.20);
   border-color: var(--holo-cyan);
-  box-shadow: 0 0 12px var(--holo-cyan-glow);
+  box-shadow: 0 0 16px var(--holo-cyan-glow);
   color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.holo-btn:active {
+  transform: translateY(1px);
 }
 
 .holo-btn-cyan {
-  background: rgba(0, 243, 255, 0.18);
+  background: rgba(0, 240, 255, 0.14);
   border-color: var(--holo-cyan);
   color: var(--holo-cyan);
 }
 
 .holo-btn-secondary {
   background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.12);
   color: #94a3b8;
 }
 
@@ -76,183 +124,215 @@
   color: #f8fafc;
 }
 
+.holo-btn-active {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.3), rgba(139, 92, 246, 0.3)) !important;
+  border-color: var(--holo-cyan) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 18px var(--holo-cyan-glow);
+}
+
 .holo-btn-icon {
   background: transparent;
   border: none;
   color: #94a3b8;
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: color 0.15s;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
 }
 
 .holo-btn-icon:hover {
+  background: rgba(0, 240, 255, 0.15);
   color: var(--holo-cyan);
 }
 
-.holo-btn-active {
-  background: rgba(0, 243, 255, 0.3) !important;
-  border-color: var(--holo-cyan) !important;
-  color: #ffffff !important;
-  box-shadow: 0 0 15px var(--holo-cyan-glow);
-}
-
-/* Floating HUDs (Non-blocking transparent overlays) */
+/* ====================================================================
+   TELEMETRY HUD CARDS (TOP CORNERS)
+   ==================================================================== */
 .holo-hud {
   position: absolute;
-  top: 16px;
-  width: 240px;
+  top: 18px;
+  width: 250px;
   background: var(--holo-bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--holo-border);
-  border-radius: 8px;
-  padding: 12px 14px;
-  font-family: var(--holo-font-mono);
-  font-size: 11px;
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-family: var(--holo-font-sans);
   color: #cbd5e1;
   z-index: 90;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7);
   pointer-events: auto;
 }
 
 .holo-hud-left {
-  left: 16px;
+  left: 18px;
 }
 
 .holo-hud-right {
-  right: 16px;
+  right: 18px;
 }
 
 .holo-hud-title {
+  font-family: var(--holo-font-sans);
+  font-size: 11px;
   font-weight: 700;
   color: var(--holo-cyan);
-  margin-bottom: 8px;
-  font-size: 12px;
   letter-spacing: 0.8px;
-  border-bottom: 1px solid rgba(0, 243, 255, 0.15);
-  padding-bottom: 4px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(0, 240, 255, 0.15);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .holo-hud-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 7px;
+  font-size: 11px;
+}
+
+.holo-hud-row span {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.holo-hud-row strong {
+  font-family: var(--holo-font-mono);
+  font-size: 11.5px;
 }
 
 .holo-val-green {
   color: var(--holo-green);
-  font-weight: 700;
 }
 
 .holo-val-cyan {
   color: var(--holo-cyan);
-  font-weight: 700;
 }
 
 .holo-val-gold {
   color: var(--holo-gold);
-  font-weight: 700;
 }
 
 .holo-val-red {
   color: var(--holo-red);
-  font-weight: 700;
 }
 
 .holo-badge {
+  font-family: var(--holo-font-mono);
   font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
   font-weight: 600;
   letter-spacing: 0.5px;
 }
 
 .holo-badge-idle {
-  background: rgba(148, 163, 184, 0.2);
+  background: rgba(148, 163, 184, 0.15);
   color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
 .holo-badge-listening {
-  background: rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.2);
   color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
 }
 
 .holo-badge-speculative {
-  background: rgba(245, 158, 11, 0.25);
+  background: rgba(245, 158, 11, 0.2);
   color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
 }
 
 .holo-badge-speaking {
-  background: rgba(0, 243, 255, 0.25);
+  background: rgba(0, 240, 255, 0.2);
   color: var(--holo-cyan);
+  border: 1px solid rgba(0, 240, 255, 0.4);
 }
 
 .holo-badge-interrupted {
-  background: rgba(255, 0, 85, 0.25);
+  background: rgba(255, 0, 85, 0.2);
   color: #ff3377;
+  border: 1px solid rgba(255, 0, 85, 0.4);
 }
 
 .holo-meter {
   width: 90px;
-  height: 8px;
+  height: 6px;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  border-radius: 6px;
   overflow: hidden;
 }
 
 .holo-meter-fill {
   width: 0%;
   height: 100%;
-  background: linear-gradient(90deg, #00f3ff, #10b981);
+  background: linear-gradient(90deg, #00f0ff, #10b981);
+  border-radius: 6px;
   transition: width 0.08s ease-out;
 }
 
-/* Drawers & Configuration Modals */
+/* ====================================================================
+   SLIDE-IN CONFIGURATION DRAWERS & MODALS
+   ==================================================================== */
 .holo-drawer {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 360px;
-  background: rgba(2, 10, 24, 0.94);
-  backdrop-filter: blur(12px);
-  border-left: 1px solid var(--holo-border);
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.7);
+  top: 14px;
+  bottom: 14px;
+  width: 420px;
+  background: linear-gradient(160deg, rgba(3, 14, 28, 0.96), rgba(6, 22, 42, 0.92));
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid var(--holo-border);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(0, 240, 255, 0.12);
   z-index: 200;
   display: flex;
   flex-direction: column;
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  font-family: var(--holo-font-mono);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  font-family: var(--holo-font-sans);
   color: #e2e8f0;
 }
 
 #rig-studio-drawer {
-  right: 0;
+  right: 14px;
 }
 
 #stage-calib-panel {
-  left: 0;
-  border-left: none;
-  border-right: 1px solid var(--holo-border);
+  left: 14px;
 }
 
 .rig-studio-closed {
-  transform: translateX(100%);
+  transform: translateX(110%);
+  opacity: 0;
   pointer-events: none;
 }
 
 .rig-studio-open {
   transform: translateX(0%);
+  opacity: 1;
   pointer-events: auto;
 }
 
 .stage-calib-closed {
-  transform: translateX(-100%);
+  transform: translateX(-110%);
+  opacity: 0;
   pointer-events: none;
 }
 
 .stage-calib-open {
   transform: translateX(0%);
+  opacity: 1;
   pointer-events: auto;
 }
 
@@ -260,63 +340,244 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 18px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--holo-border);
-  background: rgba(0, 243, 255, 0.06);
+  background: rgba(0, 240, 255, 0.04);
 }
 
 .holo-drawer-header h3 {
+  font-family: var(--holo-font-sans);
   font-size: 13px;
+  font-weight: 700;
   color: var(--holo-cyan);
   letter-spacing: 0.8px;
-  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* Tabs inside Drawers */
+.holo-tabs {
+  display: flex;
+  background: rgba(0, 0, 0, 0.25);
+  border-bottom: 1px solid var(--holo-border);
+  padding: 4px 10px;
+  gap: 6px;
+}
+
+.holo-tab {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.holo-tab:hover {
+  color: #ffffff;
+}
+
+.holo-tab.active {
+  background: rgba(0, 240, 255, 0.15);
+  color: var(--holo-cyan);
+  box-shadow: 0 0 10px var(--holo-cyan-glow);
 }
 
 .holo-drawer-body {
-  padding: 16px;
+  padding: 18px 20px;
   overflow-y: auto;
   flex: 1;
 }
 
+/* Custom Scrollbars */
+.holo-drawer-body::-webkit-scrollbar,
+.holo-joint-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.holo-drawer-body::-webkit-scrollbar-track,
+.holo-joint-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.holo-drawer-body::-webkit-scrollbar-thumb,
+.holo-joint-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 240, 255, 0.25);
+  border-radius: 3px;
+}
+
+.holo-drawer-body::-webkit-scrollbar-thumb:hover,
+.holo-joint-list::-webkit-scrollbar-thumb:hover {
+  background: var(--holo-cyan);
+}
+
+/* Sections & Cards */
 .holo-section {
-  margin-bottom: 18px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 20px;
+  background: var(--holo-bg-card);
+  border: 1px solid rgba(0, 240, 255, 0.12);
+  border-radius: 10px;
+  padding: 14px;
 }
 
 .holo-section-title {
-  display: block;
-  font-size: 11px;
-  color: #94a3b8;
-  letter-spacing: 0.5px;
-  font-weight: 600;
-  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10.5px;
+  color: #7dd3fc;
+  letter-spacing: 0.8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 12px;
 }
 
+/* High-Tech Drag & Drop Area */
 .holo-dropzone {
-  border: 1px dashed var(--holo-border);
-  border-radius: 8px;
-  padding: 18px;
+  border: 1.5px dashed var(--holo-border);
+  border-radius: 10px;
+  padding: 22px 16px;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  background: rgba(0, 243, 255, 0.03);
+  background: rgba(0, 240, 255, 0.03);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
+.holo-dropzone:hover,
 .holo-dropzone.hover {
-  background: rgba(0, 243, 255, 0.12);
+  background: rgba(0, 240, 255, 0.12);
   border-color: var(--holo-cyan);
+  box-shadow: 0 0 20px var(--holo-cyan-glow);
+}
+
+.holo-dropzone-icon {
+  font-size: 28px;
+  color: var(--holo-cyan);
 }
 
 .holo-dropzone span {
-  font-size: 11px;
-  color: #94a3b8;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #e2e8f0;
 }
 
+.holo-dropzone small {
+  font-size: 10px;
+  color: #64748b;
+  font-family: var(--holo-font-mono);
+}
+
+/* Model Card Stats Badge */
+.holo-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.holo-stat-card {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(0, 240, 255, 0.1);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.holo-stat-card span {
+  display: block;
+  font-size: 9.5px;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.holo-stat-card strong {
+  font-family: var(--holo-font-mono);
+  font-size: 12px;
+  color: var(--holo-cyan);
+}
+
+/* Joint Mapping List */
+.holo-joint-list {
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid rgba(0, 240, 255, 0.12);
+  border-radius: 8px;
+  padding: 6px;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.holo-joint-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.holo-joint-row:hover {
+  background: rgba(0, 240, 255, 0.06);
+}
+
+.holo-joint-name {
+  font-family: var(--holo-font-mono);
+  font-size: 10.5px;
+  color: #cbd5e1;
+}
+
+.holo-select {
+  background: #020b18;
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  color: #e2e8f0;
+  font-family: var(--holo-font-mono);
+  font-size: 10.5px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  max-width: 190px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.holo-select:focus {
+  border-color: var(--holo-cyan);
+  box-shadow: 0 0 10px var(--holo-cyan-glow);
+}
+
+/* Sliders */
+.holo-slider-group {
+  margin-bottom: 10px;
+}
+
+.holo-slider-group label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #cbd5e1;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.holo-slider-group label span {
+  font-family: var(--holo-font-mono);
+  color: var(--holo-cyan);
+  font-weight: 600;
+}
+
+.holo-slider {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  accent-color: var(--holo-cyan);
+  cursor: pointer;
+  outline: none;
+}
+
+/* Toggles & Checkboxes */
 .holo-toggle-row {
   display: flex;
   gap: 12px;
@@ -330,77 +591,14 @@
   align-items: center;
   gap: 6px;
   cursor: pointer;
+  user-select: none;
 }
 
-.holo-joint-list {
-  max-height: 220px;
-  overflow-y: auto;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  padding: 6px;
-  background: rgba(0, 0, 0, 0.3);
-}
-
-.holo-joint-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 6px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.holo-joint-name {
-  font-size: 10px;
-  color: #94a3b8;
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.holo-select {
-  background: #041226;
-  border: 1px solid rgba(0, 243, 255, 0.3);
-  color: #e2e8f0;
-  font-family: var(--holo-font-mono);
-  font-size: 10px;
-  padding: 3px 6px;
-  border-radius: 4px;
-  max-width: 170px;
-}
-
-.holo-slider-group {
-  margin-bottom: 8px;
-}
-
-.holo-slider-group label {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: #cbd5e1;
-  margin-bottom: 4px;
-}
-
-.holo-slider {
-  width: 100%;
+.holo-toggle-row input[type="checkbox"] {
   accent-color: var(--holo-cyan);
+  width: 14px;
+  height: 14px;
   cursor: pointer;
-}
-
-.holo-stat-box {
-  background: rgba(0, 243, 255, 0.05);
-  border: 1px solid rgba(0, 243, 255, 0.2);
-  border-radius: 6px;
-  padding: 10px;
-  margin-top: 8px;
-  font-size: 11px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.holo-stat-box strong {
-  color: var(--holo-cyan);
 }
 
 .holo-btn-grid {
@@ -412,7 +610,4 @@
 .holo-action-row {
   display: flex;
   gap: 8px;
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
 }

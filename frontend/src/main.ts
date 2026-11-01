@@ -16,26 +16,31 @@ import { FloatingWidgets } from './shaders/FloatingWidgets';
 import { RigStudioDrawer } from './ui/RigStudioDrawer';
 import { StageCalibPanel, StageCalibSettings } from './ui/StageCalibPanel';
 import { TelemetryHUD } from './ui/TelemetryHUD';
+import { LoadedRiggedModel } from './rig/UniversalModelLoader';
 
 /**
  * XeroHoloGram Main Application Bootstrapper
  * Orchestrates 60 FPS WebGL Hologram Viewport, SO(3) Kinematics,
- * Floating Augmented Cybernetic UI, and Dual-Stream Audio/D3 WebSocket.
+ * Multi-Format 3D Model Ingestion, and Full-Duplex Dual-Stream Audio/D3 WebSocket.
  */
 async function bootstrapHologramApp() {
   const container = document.getElementById('hologram-viewport');
   if (!container) return;
 
-  // 1. Initialize Stage & Camera
+  // 1. Initialize Stage & Holographic Camera
   const stage = new HologramStage(container, DEFAULT_STAGE_CONFIG);
 
-  // 2. Ambient Holographic Dust Particles
-  const particles = new HoloParticles(250);
-  stage.scene.add(particles.points);
+  // 2. Ambient Holographic Dust & Flashy Concentric Stage Pedestal
+  const particles = new HoloParticles(200);
+  stage.scene.add(particles.group);
 
   // 3. Default Procedural Rig (XeroKratos)
-  let currentRig: XeroKratosRig = ProceduralRig.createXeroKratos();
-  stage.scene.add(currentRig.root);
+  let proceduralRig: XeroKratosRig = ProceduralRig.createXeroKratos();
+  let activeModelRoot: THREE.Object3D = proceduralRig.root;
+  let activeBones: Map<Joint28, THREE.Bone> = proceduralRig.bones;
+  let activeJawBone: THREE.Bone | null = proceduralRig.jawBone;
+  let isCustomLoaded: boolean = false;
+  stage.scene.add(proceduralRig.root);
 
   // 4. Floating Cybernetic Hologram Widgets
   const floatingWidgets = new FloatingWidgets();
@@ -147,7 +152,7 @@ async function bootstrapHologramApp() {
 
   wsClient.connect();
 
-  // 11. Rig Studio & Stage Calibrator UI Drawers
+  // 11. Multi-Format Rig Studio & Model Configuration Drawer
   const rigDrawer = new RigStudioDrawer({
     onBoneSelect: (boneName) => {
       floatingWidgets.log(`Selected bone: ${boneName}`);
@@ -156,15 +161,53 @@ async function bootstrapHologramApp() {
       if (boneName in Joint28) {
         springSolver.setTargetDeg(boneName as Joint28, eulerDeg);
       }
+    },
+    onModelLoaded: (customModel: LoadedRiggedModel) => {
+      // Unmount previous avatar
+      stage.scene.remove(activeModelRoot);
+
+      // Mount new custom model
+      activeModelRoot = customModel.root;
+      activeBones = customModel.canonicalJointMap || new Map();
+      activeJawBone = customModel.canonicalJointMap?.get(Joint28.jaw) || null;
+      isCustomLoaded = true;
+
+      stage.scene.add(customModel.root);
+      const polyCount = customModel.stats?.triangleCount ? customModel.stats.triangleCount.toLocaleString() : 'N/A';
+      floatingWidgets.log(`[MODEL LOADED] Ingested ${customModel.root.name} (${polyCount} polys, ${customModel.bones.size} bones)`);
+    },
+    onResetToDefaultRig: () => {
+      stage.scene.remove(activeModelRoot);
+      activeModelRoot = proceduralRig.root;
+      activeBones = proceduralRig.bones;
+      activeJawBone = proceduralRig.jawBone;
+      isCustomLoaded = false;
+      stage.scene.add(proceduralRig.root);
+      floatingWidgets.log('[MODEL] Restored default XeroKratos procedural avatar');
+    },
+    onModelTransformChange: (scale, offsetY, rotYDeg) => {
+      if (activeModelRoot) {
+        activeModelRoot.scale.setScalar(scale);
+        activeModelRoot.position.y = offsetY;
+        activeModelRoot.rotation.y = (rotYDeg * Math.PI) / 180;
+      }
+    },
+    onShaderPaletteChange: (hexColor) => {
+      proceduralRig.setShaderColor?.(hexColor);
+      floatingWidgets.log(`[FX] Palette changed: 0x${hexColor.toString(16).padStart(6, '0')}`);
+    },
+    onParticleIntensityChange: (opacity) => {
+      particles.setIntensity(opacity);
     }
   });
 
   // Populate joints list with canonical bones
-  const detectedNames = Array.from(currentRig.bones.keys());
+  const detectedNames = Array.from(proceduralRig.bones.keys());
   const initialMap: Record<string, string> = {};
   detectedNames.forEach(name => { initialMap[name] = name; });
   rigDrawer.populateJoints(detectedNames, initialMap);
 
+  // 12. Optical Stage Calibrator
   const calibPanel = new StageCalibPanel({
     onChange: (settings: StageCalibSettings) => {
       stage.camera.fov = settings.compensatedFovDeg;
@@ -177,18 +220,22 @@ async function bootstrapHologramApp() {
           flipY: settings.flipY,
         }
       });
-      floatingWidgets.log(`[CALIB] Glass Angle: ${settings.glassAngleDeg}°, FOV: ${settings.compensatedFovDeg}°`);
+      floatingWidgets.log(`[CALIB] Reflector: ${settings.glassAngleDeg}°, FOV: ${settings.compensatedFovDeg}°`);
     }
   });
 
-  // 12. Floating Top Control Bar
+  // 13. Sleek Floating Command Bar
   const topBar = document.createElement('div');
   topBar.className = 'holo-top-bar';
   topBar.innerHTML = `
-    <button id="btn-toggle-mic" class="holo-btn holo-btn-cyan">🎙 MIC: OFF</button>
+    <div class="holo-brand-badge">
+      <span class="holo-status-dot"></span>
+      XEROHOLOGRAM
+    </div>
+    <button id="btn-toggle-mic" class="holo-btn holo-btn-cyan">🎙 MIC STREAM</button>
+    <button id="btn-open-rig-studio" class="holo-btn holo-btn-secondary">📦 3D AVATAR & RIG</button>
     <button id="btn-toggle-terminal" class="holo-btn holo-btn-secondary">💻 WRIST HUD</button>
     <button id="btn-spawn-clone" class="holo-btn holo-btn-secondary">✨ SPAWN AGENT</button>
-    <button id="btn-open-rig-studio" class="holo-btn holo-btn-secondary">🦴 BONE STUDIO</button>
     <button id="btn-open-calib" class="holo-btn holo-btn-secondary">📐 STAGE CALIB</button>
   `;
   document.body.appendChild(topBar);
@@ -204,7 +251,7 @@ async function bootstrapHologramApp() {
       floatingWidgets.log('[MIC] Continuous SpeechRecognition & VAD started.');
     } else {
       speechSensor.stop();
-      btnMic.textContent = '🎙 MIC: OFF';
+      btnMic.textContent = '🎙 MIC STREAM';
       btnMic.classList.remove('holo-btn-active');
       floatingWidgets.log('[MIC] Speech capture paused.');
     }
@@ -235,7 +282,7 @@ async function bootstrapHologramApp() {
   const btnCalib = topBar.querySelector('#btn-open-calib');
   btnCalib?.addEventListener('click', () => calibPanel.toggle());
 
-  // 13. 60 FPS Main Render & Physics Hook
+  // 14. 60 FPS Main Render & Physics Hook
   stage.registerRenderHook((delta, elapsed) => {
     const now = performance.now();
     telemetryHUD.tick(delta * 1000);
@@ -282,11 +329,13 @@ async function bootstrapHologramApp() {
     const viseme = visemeAnalyzer.analyze(freqData, delta);
     telemetryHUD.updateData({ visemeEnergy: viseme.rmsEnergy });
 
-    // F. Reactor Core Voice Pulse & Visor Glow
-    currentRig.updateReactorPulse(viseme.rmsEnergy, delta);
+    // F. Reactor Core Voice Pulse & Visor Glow (if default rig)
+    if (!isCustomLoaded) {
+      proceduralRig.updateReactorPulse(viseme.rmsEnergy, delta);
+    }
 
-    // G. Apply Rotations to 28 Canonical Bones
-    for (const [joint, bone] of currentRig.bones.entries()) {
+    // G. Apply Rotations to Active Skeleton Bones
+    for (const [joint, bone] of activeBones.entries()) {
       const springRad = springSolver.getCurrentEulerRad(joint);
       const idleAdd = idleOffsets.jointOffsets.get(joint) || [0, 0, 0];
 
@@ -312,12 +361,12 @@ async function bootstrapHologramApp() {
     }
 
     // H. Articulate Jaw Bone for Lip-Sync
-    if (currentRig.jawBone) {
-      currentRig.jawBone.rotation.x = viseme.jawPitchRad;
+    if (activeJawBone) {
+      activeJawBone.rotation.x = viseme.jawPitchRad;
     }
 
     // I. Update Floating Widgets (Wrist Terminal Attachment & Sub-Agent Animations)
-    const leftHandBone = currentRig.bones.get(Joint28.hand_L);
+    const leftHandBone = activeBones.get(Joint28.hand_L);
     floatingWidgets.updateWristAttachment(leftHandBone || null);
     floatingWidgets.update(now);
   });

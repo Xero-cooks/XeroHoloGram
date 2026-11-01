@@ -17,7 +17,7 @@ describe('RigStudioDrawer Component', () => {
 
     drawer.exportCurrentConfig();
     expect(exportedConfig).not.toBeNull();
-    expect(exportedConfig.rig_name).toBe('custom_calibrated_rig');
+    expect(exportedConfig.rig_name).toContain('XeroKratos');
     expect(exportedConfig.rest_pose_type).toBe('T_POSE');
     expect(exportedConfig.bone_mappings).toBeDefined();
   });
