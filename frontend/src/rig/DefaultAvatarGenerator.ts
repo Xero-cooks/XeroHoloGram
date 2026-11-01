@@ -152,6 +152,8 @@ export class DefaultAvatarGenerator {
     });
 
     const skinnedMesh = new THREE.SkinnedMesh(geometry, material);
+    skinnedMesh.morphTargetDictionary = morphDict;
+    skinnedMesh.morphTargetInfluences = new Array(Object.keys(morphDict).length).fill(0);
     skinnedMesh.add(hips);
     skinnedMesh.bind(skeleton);
     root.add(skinnedMesh);
