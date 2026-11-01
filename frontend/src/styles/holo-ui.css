@@ -1,0 +1,418 @@
+/**
+ * holo-ui.css
+ * Cybernetic Glassmorphic UI styles for Agentic-Hologram & Pepper's Ghost Viewport
+ * Strict rule: All container canvases and backdrop layers remain 100% black (#000000)
+ * to prevent ambient light bleed into the physical 45-degree beam splitter.
+ */
+
+:root {
+  --holo-cyan: #00f3ff;
+  --holo-cyan-glow: rgba(0, 243, 255, 0.4);
+  --holo-green: #10b981;
+  --holo-gold: #f59e0b;
+  --holo-red: #ff0055;
+  --holo-bg-glass: rgba(2, 12, 28, 0.88);
+  --holo-border: rgba(0, 243, 255, 0.28);
+  --holo-font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+/* Floating Top Navigation Bar */
+.holo-top-bar {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  background: var(--holo-bg-glass);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--holo-border);
+  border-radius: 24px;
+  padding: 6px 16px;
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(0, 243, 255, 0.15);
+}
+
+/* Common Cybernetic Buttons */
+.holo-btn {
+  font-family: var(--holo-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--holo-border);
+  background: rgba(0, 243, 255, 0.08);
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.holo-btn:hover {
+  background: rgba(0, 243, 255, 0.22);
+  border-color: var(--holo-cyan);
+  box-shadow: 0 0 12px var(--holo-cyan-glow);
+  color: #ffffff;
+}
+
+.holo-btn-cyan {
+  background: rgba(0, 243, 255, 0.18);
+  border-color: var(--holo-cyan);
+  color: var(--holo-cyan);
+}
+
+.holo-btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
+}
+
+.holo-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f8fafc;
+}
+
+.holo-btn-icon {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+
+.holo-btn-icon:hover {
+  color: var(--holo-cyan);
+}
+
+.holo-btn-active {
+  background: rgba(0, 243, 255, 0.3) !important;
+  border-color: var(--holo-cyan) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 15px var(--holo-cyan-glow);
+}
+
+/* Floating HUDs (Non-blocking transparent overlays) */
+.holo-hud {
+  position: absolute;
+  top: 16px;
+  width: 240px;
+  background: var(--holo-bg-glass);
+  border: 1px solid var(--holo-border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-family: var(--holo-font-mono);
+  font-size: 11px;
+  color: #cbd5e1;
+  z-index: 90;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+}
+
+.holo-hud-left {
+  left: 16px;
+}
+
+.holo-hud-right {
+  right: 16px;
+}
+
+.holo-hud-title {
+  font-weight: 700;
+  color: var(--holo-cyan);
+  margin-bottom: 8px;
+  font-size: 12px;
+  letter-spacing: 0.8px;
+  border-bottom: 1px solid rgba(0, 243, 255, 0.15);
+  padding-bottom: 4px;
+}
+
+.holo-hud-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.holo-val-green {
+  color: var(--holo-green);
+  font-weight: 700;
+}
+
+.holo-val-cyan {
+  color: var(--holo-cyan);
+  font-weight: 700;
+}
+
+.holo-val-gold {
+  color: var(--holo-gold);
+  font-weight: 700;
+}
+
+.holo-val-red {
+  color: var(--holo-red);
+  font-weight: 700;
+}
+
+.holo-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.holo-badge-idle {
+  background: rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+}
+
+.holo-badge-listening {
+  background: rgba(16, 185, 129, 0.25);
+  color: #34d399;
+}
+
+.holo-badge-speculative {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+}
+
+.holo-badge-speaking {
+  background: rgba(0, 243, 255, 0.25);
+  color: var(--holo-cyan);
+}
+
+.holo-badge-interrupted {
+  background: rgba(255, 0, 85, 0.25);
+  color: #ff3377;
+}
+
+.holo-meter {
+  width: 90px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.holo-meter-fill {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, #00f3ff, #10b981);
+  transition: width 0.08s ease-out;
+}
+
+/* Drawers & Configuration Modals */
+.holo-drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 360px;
+  background: rgba(2, 10, 24, 0.94);
+  backdrop-filter: blur(12px);
+  border-left: 1px solid var(--holo-border);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.7);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: var(--holo-font-mono);
+  color: #e2e8f0;
+}
+
+#rig-studio-drawer {
+  right: 0;
+}
+
+#stage-calib-panel {
+  left: 0;
+  border-left: none;
+  border-right: 1px solid var(--holo-border);
+}
+
+.rig-studio-closed {
+  transform: translateX(100%);
+  pointer-events: none;
+}
+
+.rig-studio-open {
+  transform: translateX(0%);
+  pointer-events: auto;
+}
+
+.stage-calib-closed {
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+
+.stage-calib-open {
+  transform: translateX(0%);
+  pointer-events: auto;
+}
+
+.holo-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--holo-border);
+  background: rgba(0, 243, 255, 0.06);
+}
+
+.holo-drawer-header h3 {
+  font-size: 13px;
+  color: var(--holo-cyan);
+  letter-spacing: 0.8px;
+  font-weight: 700;
+}
+
+.holo-drawer-body {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.holo-section {
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.holo-section-title {
+  display: block;
+  font-size: 11px;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.holo-dropzone {
+  border: 1px dashed var(--holo-border);
+  border-radius: 8px;
+  padding: 18px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 243, 255, 0.03);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.holo-dropzone.hover {
+  background: rgba(0, 243, 255, 0.12);
+  border-color: var(--holo-cyan);
+}
+
+.holo-dropzone span {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.holo-toggle-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: #cbd5e1;
+}
+
+.holo-toggle-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.holo-joint-list {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 6px;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.holo-joint-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.holo-joint-name {
+  font-size: 10px;
+  color: #94a3b8;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.holo-select {
+  background: #041226;
+  border: 1px solid rgba(0, 243, 255, 0.3);
+  color: #e2e8f0;
+  font-family: var(--holo-font-mono);
+  font-size: 10px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  max-width: 170px;
+}
+
+.holo-slider-group {
+  margin-bottom: 8px;
+}
+
+.holo-slider-group label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #cbd5e1;
+  margin-bottom: 4px;
+}
+
+.holo-slider {
+  width: 100%;
+  accent-color: var(--holo-cyan);
+  cursor: pointer;
+}
+
+.holo-stat-box {
+  background: rgba(0, 243, 255, 0.05);
+  border: 1px solid rgba(0, 243, 255, 0.2);
+  border-radius: 6px;
+  padding: 10px;
+  margin-top: 8px;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.holo-stat-box strong {
+  color: var(--holo-cyan);
+}
+
+.holo-btn-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.holo-action-row {
+  display: flex;
+  gap: 8px;
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
