@@ -8,7 +8,7 @@ export interface TelemetryData {
   intentClass: string;
   emotion: string;
   shaderState: string;
-  speechState: 'IDLE' | 'LISTENING' | 'SPECULATIVE' | 'SPEAKING' | 'INTERRUPTED';
+  speechState: 'IDLE' | 'LISTENING' | 'SPECULATIVE' | 'SPEAKING' | 'INTERRUPTED' | 'USER_SPEAKING' | 'THINKING';
 }
 
 export class TelemetryHUD {

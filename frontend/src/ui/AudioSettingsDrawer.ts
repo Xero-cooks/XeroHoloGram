@@ -4,6 +4,7 @@ export interface AudioSettingsData {
   deviceId: string;
   energyThreshold: number;
   hangoverMs: number;
+  silenceEndpointMs: number;
   echoCancellation: boolean;
   noiseSuppression: boolean;
   autoGainControl: boolean;
@@ -24,7 +25,8 @@ export class AudioSettingsDrawer {
   private settings: AudioSettingsData = {
     deviceId: 'default',
     energyThreshold: 0.03,
-    hangoverMs: 250,
+    hangoverMs: 350,
+    silenceEndpointMs: 750,
     echoCancellation: true,
     noiseSuppression: true,
     autoGainControl: true,
@@ -105,6 +107,11 @@ export class AudioSettingsDrawer {
           <div class="holo-slider-group" style="margin-top:10px;">
             <label>Speech Hangover (ms): <span id="lbl-val-hangover">${this.settings.hangoverMs} ms</span></label>
             <input type="range" id="slider-vad-hangover" min="100" max="600" step="25" value="${this.settings.hangoverMs}" class="holo-slider" />
+          </div>
+
+          <div class="holo-slider-group" style="margin-top:10px;">
+            <label>Silence Endpoint (ms): <span id="lbl-val-endpoint">${this.settings.silenceEndpointMs} ms</span></label>
+            <input type="range" id="slider-vad-endpoint" min="300" max="1500" step="50" value="${this.settings.silenceEndpointMs}" class="holo-slider" />
           </div>
 
           <div class="holo-toggle-row" style="margin-top:14px; gap:16px;">
@@ -188,6 +195,15 @@ export class AudioSettingsDrawer {
     sliderHang?.addEventListener('input', () => {
       this.settings.hangoverMs = parseInt(sliderHang.value, 10);
       if (lblHang) lblHang.textContent = `${sliderHang.value} ms`;
+      this.notifyChange();
+    });
+
+    // Endpoint Slider
+    const sliderEndpoint = this.container.querySelector('#slider-vad-endpoint') as HTMLInputElement;
+    const lblEndpoint = this.container.querySelector('#lbl-val-endpoint');
+    sliderEndpoint?.addEventListener('input', () => {
+      this.settings.silenceEndpointMs = parseInt(sliderEndpoint.value, 10);
+      if (lblEndpoint) lblEndpoint.textContent = `${sliderEndpoint.value} ms`;
       this.notifyChange();
     });
 
