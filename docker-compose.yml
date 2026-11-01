@@ -1,0 +1,13 @@
+version: "3.8"
+
+services:
+  xerohologram:
+    build: .
+    container_name: xerohologram_stage
+    ports:
+      - "8765:8765"
+    environment:
+      - LLM_BASE_URL=https://api.openai.com/v1
+      - LLM_MODEL=gpt-4o-mini
+      - DEFAULT_TTS_ENGINE=Edge-TTS
+    restart: unless-stopped
