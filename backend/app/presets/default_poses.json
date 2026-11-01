@@ -1,0 +1,111 @@
+{
+  "neutral": {
+    "description": "Standard relaxed conversational stance",
+    "angles_deg": {
+      "spine_01": [0, 0, 0],
+      "neck": [0, 0, 0],
+      "head": [0, 0, 0],
+      "upper_arm_L": [10, 0, 8],
+      "upper_arm_R": [10, 0, -8],
+      "lower_arm_L": [15, 0, 0],
+      "lower_arm_R": [15, 0, 0]
+    }
+  },
+  "listening_attentive": {
+    "description": "Active listening posture with 5-degree head tilt and forward lean",
+    "angles_deg": {
+      "spine_01": [4, 0, 0],
+      "spine_02": [3, 0, 0],
+      "neck": [5, -4, 5],
+      "head": [3, -2, 3],
+      "upper_arm_L": [8, 0, 5],
+      "upper_arm_R": [8, 0, -5]
+    }
+  },
+  "hand_up_ack": {
+    "description": "Gentle hand raise acknowledging user speech",
+    "angles_deg": {
+      "neck": [6, -10, 3],
+      "upper_arm_R": [48, -15, -38],
+      "lower_arm_R": [72, 0, 0],
+      "hand_R": [10, 5, 0],
+      "index_R": [0, 0, 0]
+    }
+  },
+  "finger_up_insight": {
+    "description": "Raised index finger presenting a key point or insight",
+    "angles_deg": {
+      "spine_01": [5, 8, 0],
+      "neck": [-4, -6, 0],
+      "head": [-2, -4, 0],
+      "upper_arm_L": [55, 20, 35],
+      "lower_arm_L": [85, 0, 0],
+      "hand_L": [-12, 0, 0],
+      "index_L": [0, 0, 0],
+      "thumb_L": [20, 10, 0],
+      "middle_L": [70, 0, 0]
+    }
+  },
+  "thinking_chin_touch": {
+    "description": "Reflective posture with hand near chin and slight upward gaze",
+    "angles_deg": {
+      "neck": [-8, -12, 6],
+      "head": [-10, -8, 4],
+      "upper_arm_R": [75, -20, -35],
+      "lower_arm_R": [110, 0, 0],
+      "hand_R": [20, 15, 0]
+    }
+  },
+  "terminal_summon": {
+    "description": "Left wrist raised horizontally in front of chest inspecting 3D holographic terminal",
+    "angles_deg": {
+      "upper_arm_L": [60, 30, 40],
+      "lower_arm_L": [90, 0, 20],
+      "hand_L": [0, 15, -10],
+      "head": [12, 15, -4]
+    }
+  },
+  "self_heal": {
+    "description": "Self-healing diagnostic posture with chest opened and hands out",
+    "angles_deg": {
+      "spine_01": [-6, 0, 0],
+      "spine_02": [-8, 0, 0],
+      "neck": [-10, 0, 0],
+      "upper_arm_L": [35, 25, 40],
+      "upper_arm_R": [35, -25, -40],
+      "lower_arm_L": [45, 0, 0],
+      "lower_arm_R": [45, 0, 0]
+    }
+  },
+  "greeting_wave": {
+    "description": "Warm right-hand greeting wave",
+    "angles_deg": {
+      "upper_arm_R": [80, 0, -45],
+      "lower_arm_R": [95, 0, 0],
+      "hand_R": [0, 0, 15],
+      "head": [6, 4, 0]
+    }
+  },
+  "open_palms_welcome": {
+    "description": "Both arms extended forward with open palms welcoming user",
+    "angles_deg": {
+      "upper_arm_L": [40, 15, 20],
+      "upper_arm_R": [40, -15, -20],
+      "lower_arm_L": [50, 0, 0],
+      "lower_arm_R": [50, 0, 0],
+      "head": [4, 0, 0]
+    }
+  },
+  "shrug_uncertain": {
+    "description": "Subtle shoulder shrug with open forearms",
+    "angles_deg": {
+      "clavicle_L": [0, 0, 12],
+      "clavicle_R": [0, 0, -12],
+      "upper_arm_L": [25, 10, 20],
+      "upper_arm_R": [25, -10, -20],
+      "lower_arm_L": [60, 0, 0],
+      "lower_arm_R": [60, 0, 0],
+      "head": [-4, 6, -8]
+    }
+  }
+}
