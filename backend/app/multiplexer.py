@@ -7,7 +7,9 @@ from backend.app.ws.connection_manager import ConnectionManager
 from backend.app.state_machine.turn_machine import TurnStateMachine, TurnState
 from backend.app.state_machine.barge_in_handler import BargeInHandler
 from backend.app.state_machine.speculative_prewarmer import SpeculativePrewarmer
-from backend.app.llm.decision_llm import DecisionLLMEngine
+from backend.app.llm.vllm_decision_client import VLLMDecisionClient
+from backend.app.llm.openai_chat_client import OpenAIChatClient
+from backend.app.llm.key_pool import decision_key_pool
 from backend.app.chunker.clause_chunker import ClauseChunker
 from backend.app.tts.edge_adapter import EdgeTTSAdapter
 from backend.app.tts.base_adapter import BaseTTSAdapter
@@ -21,7 +23,8 @@ connection_manager = ConnectionManager()
 barge_in_handler = BargeInHandler(connection_manager)
 prewarmer = SpeculativePrewarmer()
 telemetry = LatencyTelemetry()
-decision_llm = DecisionLLMEngine()
+decision_client = VLLMDecisionClient(key_pool=decision_key_pool)
+chat_client = OpenAIChatClient()
 
 
 async def process_conversational_turn(
@@ -34,8 +37,9 @@ async def process_conversational_turn(
     telemetry.record_turn_start(session_id)
 
     try:
-        # Step 1: Decision-Based LLM Evaluation (Bounded intent, confidence, tools, SO(3) plan)
-        decision = await decision_llm.evaluate_decision(user_prompt)
+        # Step 1: Decision Model (vLLM Semantic Router System One / vllm-sr/d3-flash)
+        # Evaluates calibrated probabilities for intent, tools, SO(3) physical posture, gaze & shader
+        decision = await decision_client.evaluate_decision(user_prompt)
 
         # Step 2: Stream B - Broadcast structured Decision Packet & Kinematics immediately
         decision_data = decision.model_dump()
@@ -62,14 +66,13 @@ async def process_conversational_turn(
                 "parameters": decision.tool_call.parameters
             })
 
-        # Step 4: Stream A - Clause-chunked 24kHz Audio Synthesis
+        # Step 4: Stream A - Conversational Chat LLM for spoken voice stream
         state_machine.transition_to(TurnState.SPEAKING)
         chunker = ClauseChunker()
         sequence_id = 0
 
-        # Feed the speech response tokens/words into the clause chunker
-        for word in decision.speech_response.split(" "):
-            clauses = chunker.feed_token(word + " ")
+        async for token in chat_client.stream_chat(user_prompt):
+            clauses = chunker.feed_token(token)
             for clause in clauses:
                 await synthesize_and_send_audio(session_id, clause, tts_adapter, sequence_id)
                 sequence_id += 1
@@ -146,19 +149,24 @@ async def websocket_hologram_endpoint(websocket: WebSocket, session_id: str = "d
                 await connection_manager.send_json(session_id, {"type": "pong", "timestamp": ts})
 
             elif msg_type == "llm_config":
-                decision_llm.update_config(
+                chat_client.update_config(
                     base_url=data.get("base_url"),
                     api_key=data.get("api_key"),
                     model=data.get("model"),
                     system_prompt=data.get("system_prompt")
                 )
+                if "decision_model" in data and data["decision_model"]:
+                    decision_client.model = data["decision_model"]
                 if "tts_voice" in data and data["tts_voice"]:
                     default_tts._voice = data["tts_voice"]
 
+                pool_stats = decision_key_pool.get_pool_stats()
                 await connection_manager.send_json(session_id, {
                     "type": "config_ack",
                     "status": "updated",
-                    "model": decision_llm.model,
+                    "chat_model": chat_client.model,
+                    "decision_model": decision_client.model,
+                    "decision_key_pool": pool_stats,
                     "tts_voice": getattr(default_tts, "_voice", "default")
                 })
 
