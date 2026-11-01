@@ -1,3 +1,5 @@
+import type { AgenticDecisionPacket } from '../network/HoloSocketClient';
+
 export interface LLMConfig {
   provider: 'openai' | 'groq' | 'openrouter' | 'gemini' | 'ollama' | 'mock';
   baseUrl: string;
@@ -223,10 +225,53 @@ export class AICoreModal {
               </div>
             </div>
 
+            <!-- Decision LLM Policy Inspector Card -->
+            <div id="decision-policy-card" style="margin-top:12px; background:rgba(0,18,32,0.85); border:1px solid rgba(0,240,255,0.25); border-radius:8px; padding:10px; font-family:var(--holo-font-sans); transition:border-color 0.3s;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="font-size:11px; font-weight:700; color:#38bdf8; letter-spacing:0.5px;">🎯 DECISION LLM POLICY INSPECTOR</span>
+                <span id="decision-confidence-badge" class="holo-badge holo-badge-speaking" style="font-size:9.5px;">STANDBY</span>
+              </div>
+              
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px; font-size:10px;">
+                <div style="background:rgba(0,0,0,0.4); padding:6px; border-radius:4px; border:1px solid rgba(255,255,255,0.06);">
+                  <span style="color:#64748b; font-weight:600; display:block;">RESOLVED INTENT</span>
+                  <span id="decision-intent-val" style="color:#00f0ff; font-weight:700; font-family:var(--holo-font-mono);">NONE</span>
+                </div>
+                <div style="background:rgba(0,0,0,0.4); padding:6px; border-radius:4px; border:1px solid rgba(255,255,255,0.06);">
+                  <span style="color:#64748b; font-weight:600; display:block;">TOOL ACTUATOR</span>
+                  <span id="decision-tool-val" style="color:#a855f7; font-weight:700; font-family:var(--holo-font-mono);">NONE</span>
+                </div>
+                <div style="background:rgba(0,0,0,0.4); padding:6px; border-radius:4px; border:1px solid rgba(255,255,255,0.06);">
+                  <span style="color:#64748b; font-weight:600; display:block;">EMOTION & SHADER</span>
+                  <span id="decision-emotion-val" style="color:#38bdf8; font-weight:600;">neutral_attentive</span>
+                </div>
+                <div style="background:rgba(0,0,0,0.4); padding:6px; border-radius:4px; border:1px solid rgba(255,255,255,0.06);">
+                  <span style="color:#64748b; font-weight:600; display:block;">SO(3) KINEMATIC PLAN</span>
+                  <span id="decision-plan-val" style="color:#34d399; font-weight:600;">0 Keyframes</span>
+                </div>
+              </div>
+
+              <!-- Thought Trace Scratchpad -->
+              <div style="background:rgba(0,0,0,0.5); border:1px dashed rgba(0,240,255,0.2); border-radius:6px; padding:6px 8px; margin-bottom:8px;">
+                <span style="font-size:9px; color:#64748b; font-weight:700; display:block; margin-bottom:2px;">💭 CHAIN-OF-THOUGHT SCRATCHPAD</span>
+                <div id="decision-thought-val" style="font-size:9.5px; color:#cbd5e1; font-family:var(--holo-font-mono); font-style:italic; line-height:1.35; max-height:48px; overflow-y:auto;">
+                  Waiting for user interaction...
+                </div>
+              </div>
+
+              <!-- Spoken Speech Payload -->
+              <div style="background:rgba(0,240,255,0.05); border:1px solid rgba(0,240,255,0.2); border-radius:6px; padding:6px 8px;">
+                <span style="font-size:9px; color:#00f0ff; font-weight:700; display:block; margin-bottom:2px;">🎙 STREAMED VERBAL PAYLOAD</span>
+                <div id="decision-speech-val" style="font-size:10px; color:#f8fafc; font-weight:500; line-height:1.35;">
+                  "Awaiting next conversational turn."
+                </div>
+              </div>
+            </div>
+
             <!-- Real-Time Activity Log -->
-            <div style="margin-top:14px;">
+            <div style="margin-top:12px;">
               <div style="font-size:10.5px; color:#7dd3fc; font-weight:700; margin-bottom:6px;">CONVERSATIONAL STREAM LOG</div>
-              <div id="ai-stream-log" style="height:160px; overflow-y:auto; background:rgba(0,0,0,0.45); border:1px solid rgba(0,240,255,0.15); border-radius:8px; padding:8px; font-family:var(--holo-font-mono); font-size:10px; color:#94a3b8;">
+              <div id="ai-stream-log" style="height:120px; overflow-y:auto; background:rgba(0,0,0,0.45); border:1px solid rgba(0,240,255,0.15); border-radius:8px; padding:8px; font-family:var(--holo-font-mono); font-size:10px; color:#94a3b8;">
                 <div style="color:#00f0ff;">[READY] AI Core Test Harness Initialized.</div>
               </div>
             </div>
@@ -404,6 +449,67 @@ export class AICoreModal {
     if (this.container) {
       this.container.classList.toggle('rig-studio-closed', !this.isOpen);
       this.container.classList.toggle('rig-studio-open', this.isOpen);
+    }
+  }
+
+  public renderDecisionCard(decision: AgenticDecisionPacket): void {
+    if (!this.container) return;
+
+    const card = this.container.querySelector('#decision-policy-card') as HTMLElement;
+    const badgeConf = this.container.querySelector('#decision-confidence-badge') as HTMLElement;
+    const elIntent = this.container.querySelector('#decision-intent-val') as HTMLElement;
+    const elTool = this.container.querySelector('#decision-tool-val') as HTMLElement;
+    const elEmotion = this.container.querySelector('#decision-emotion-val') as HTMLElement;
+    const elPlan = this.container.querySelector('#decision-plan-val') as HTMLElement;
+    const elThought = this.container.querySelector('#decision-thought-val') as HTMLElement;
+    const elSpeech = this.container.querySelector('#decision-speech-val') as HTMLElement;
+
+    if (badgeConf) {
+      const pct = Math.round((decision.confidence ?? 0.95) * 100);
+      badgeConf.textContent = `${pct}% CONFIDENCE`;
+      badgeConf.className = pct >= 90 ? 'holo-badge holo-badge-connected' : 'holo-badge holo-badge-speaking';
+    }
+
+    if (elIntent) {
+      elIntent.textContent = (decision.intent_class || 'CONVERSATIONAL_QA').toUpperCase();
+    }
+
+    if (elTool) {
+      if (decision.tool_call && decision.tool_call.name) {
+        elTool.textContent = decision.tool_call.name;
+        elTool.style.color = '#c084fc';
+      } else {
+        elTool.textContent = 'NONE';
+        elTool.style.color = '#64748b';
+      }
+    }
+
+    if (elEmotion) {
+      elEmotion.textContent = `${decision.emotion || 'neutral'} • ${decision.holo_shader_state || 'cyan'}`;
+    }
+
+    if (elPlan) {
+      const count = decision.gesture_sequence?.length || 0;
+      const presets = (decision.gesture_sequence || []).map(g => g.base_preset).join(', ');
+      elPlan.textContent = `${count} Ph (${presets || 'neutral'})`;
+    }
+
+    if (elThought) {
+      elThought.textContent = decision.thought_trace || 'Direct intent-action resolution applied.';
+    }
+
+    if (elSpeech) {
+      elSpeech.textContent = `"${decision.speech_response}"`;
+    }
+
+    // Flash border on decision pulse
+    if (card) {
+      card.style.borderColor = '#00f0ff';
+      card.style.boxShadow = '0 0 16px rgba(0,240,255,0.35)';
+      setTimeout(() => {
+        card.style.borderColor = 'rgba(0,240,255,0.25)';
+        card.style.boxShadow = 'none';
+      }, 700);
     }
   }
 
