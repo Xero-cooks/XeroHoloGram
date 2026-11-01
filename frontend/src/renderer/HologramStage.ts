@@ -5,6 +5,8 @@ import { AxisInversionTransformer } from '../optics/axisInversion';
 /**
  * HologramStage
  * Encapsulates the WebGL2 / Three.js holographic rendering environment.
+ * Features high-brightness IPS panel display contrast boost, ACES Filmic tone mapping,
+ * absolute #000000 optical black void, and seamless Fullscreen Projection Mode.
  */
 export class HologramStage {
   public scene: THREE.Scene;
@@ -18,6 +20,12 @@ export class HologramStage {
   private clock: THREE.Clock;
   private onRenderCallbacks: Array<(delta: number, elapsed: number) => void> = [];
 
+  // Lighting References for Dynamic IPS Boost
+  private ambientLight!: THREE.AmbientLight;
+  private keyRimLight!: THREE.DirectionalLight;
+  private fillLight!: THREE.DirectionalLight;
+  private topSpotLight!: THREE.DirectionalLight;
+
   constructor(container: HTMLElement, config: HologramAppConfig) {
     this.container = container;
     this.config = config;
@@ -27,7 +35,7 @@ export class HologramStage {
       flipY: config.optical.flipY,
     });
 
-    // 1. Scene setup with pure black background for optical transparency
+    // 1. Scene setup with pure #000000 black background for optical Pepper's Ghost transparency
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x000000);
 
@@ -37,7 +45,7 @@ export class HologramStage {
     this.camera.position.set(0, 1.45, 2.6);
     this.camera.lookAt(0, 1.35, 0);
 
-    // 3. Renderer configuration with alpha channel enabled
+    // 3. Renderer configuration with alpha channel & ACES Filmic Tone Mapping for IPS vibrancy
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
@@ -47,12 +55,15 @@ export class HologramStage {
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.setClearColor(0x000000, 1.0);
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.35; // Enhanced initial exposure for vivid contrast
     this.container.appendChild(this.renderer.domElement);
 
-    // 4. Hologram lighting rig
+    // 4. High-Intensity Hologram Lighting Rig
     this.setupLighting();
 
-    // 5. Handle window resizing
+    // 5. Window resizing
     window.addEventListener('resize', this.onResize);
 
     // 6. Apply axis transforms
@@ -60,26 +71,63 @@ export class HologramStage {
   }
 
   private setupLighting(): void {
-    // Holographic ambient light
-    const ambientLight = new THREE.AmbientLight(0x051a2e, 1.2);
-    this.scene.add(ambientLight);
+    // Subtle deep blue ambient base (keeps blacks pitch dark)
+    this.ambientLight = new THREE.AmbientLight(0x020d1c, 0.8);
+    this.scene.add(this.ambientLight);
 
-    // Key rim light (cyan)
-    const keyRim = new THREE.DirectionalLight(0x00e5ff, 2.8);
-    keyRim.position.set(0, 3, -2);
-    this.scene.add(keyRim);
+    // High-Intensity Key Rim Light (Electric Cyan)
+    this.keyRimLight = new THREE.DirectionalLight(0x00f0ff, 4.2);
+    this.keyRimLight.position.set(0, 3.2, -2.5);
+    this.scene.add(this.keyRimLight);
 
-    // Front fill light (soft violet)
-    const fillLight = new THREE.DirectionalLight(0x8a2be2, 1.0);
-    fillLight.position.set(1.5, 2, 2.5);
-    this.scene.add(fillLight);
+    // Secondary Fill Rim Light (Cyber Violet)
+    this.fillLight = new THREE.DirectionalLight(0x8b5cf6, 2.0);
+    this.fillLight.position.set(2.0, 2.2, 2.8);
+    this.scene.add(this.fillLight);
+
+    // Top Downward Quantum Spot Light (Illuminates head, visor & reactor core)
+    this.topSpotLight = new THREE.DirectionalLight(0xffffff, 2.6);
+    this.topSpotLight.position.set(0, 4.0, 0.5);
+    this.scene.add(this.topSpotLight);
+  }
+
+  /**
+   * IPS Display Calibration & Max Brightness Boost
+   * Counters IPS backlight glow by boosting edge luminescence and tone mapping
+   */
+  public setIPSOptimization(enabled: boolean, exposure: number = 1.45): void {
+    this.renderer.toneMappingExposure = enabled ? exposure : 1.0;
+    if (this.keyRimLight) this.keyRimLight.intensity = enabled ? 4.8 : 2.8;
+    if (this.fillLight) this.fillLight.intensity = enabled ? 2.4 : 1.2;
+    if (this.topSpotLight) this.topSpotLight.intensity = enabled ? 3.2 : 1.6;
+    if (this.ambientLight) this.ambientLight.intensity = enabled ? 0.6 : 0.8; // Lower ambient keeps blacks deep
+  }
+
+  /**
+   * Toggle Fullscreen Hologram Projection Mode
+   */
+  public async toggleFullscreen(force?: boolean): Promise<boolean> {
+    if (typeof document === 'undefined') return false;
+    const isFs = !!document.fullscreenElement;
+    const target = force !== undefined ? force : !isFs;
+
+    try {
+      if (target && !document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+        return true;
+      } else if (!target && document.fullscreenElement) {
+        await document.exitFullscreen();
+        return false;
+      }
+    } catch (e) {
+      console.warn('[HologramStage] Fullscreen request error:', e);
+    }
+    return !!document.fullscreenElement;
   }
 
   public applyAxisInversion(): void {
     const scale = this.axisTransformer.getProjectionScaleMatrix();
     const scaleMatrix = new THREE.Matrix4().fromArray(scale);
-    
-    // Scale camera projection for mirror inversion
     this.camera.projectionMatrix.multiply(scaleMatrix);
   }
 

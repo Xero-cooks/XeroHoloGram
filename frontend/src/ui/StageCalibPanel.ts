@@ -11,11 +11,16 @@ export interface StageCalibSettings {
   fresnelPower: number;
   scanlineIntensity: number;
   glitchIntensity: number;
+  ipsMode: boolean;
+  ipsExposure: number;
+  ipsRimBoost: number;
 }
 
 export interface StageCalibCallbacks {
   onChange?: (settings: StageCalibSettings) => void;
   onReset?: () => void;
+  onFullscreenToggle?: () => void;
+  onIPSOptimizationChange?: (enabled: boolean, exposure: number, rimBoost: number) => void;
 }
 
 export class StageCalibPanel {
@@ -33,7 +38,10 @@ export class StageCalibPanel {
     fresnelBias: 0.1,
     fresnelPower: 2.5,
     scanlineIntensity: 0.35,
-    glitchIntensity: 0.0
+    glitchIntensity: 0.0,
+    ipsMode: true,
+    ipsExposure: 1.45,
+    ipsRimBoost: 4.5
   };
 
   private callbacks: StageCalibCallbacks;
@@ -70,9 +78,42 @@ export class StageCalibPanel {
       </div>
 
       <div class="holo-drawer-body">
+        <!-- Fullscreen Projection Action -->
+        <div class="holo-section" style="background: linear-gradient(135deg, rgba(0, 240, 255, 0.12), rgba(139, 92, 246, 0.12));">
+          <div class="holo-section-title">
+            <span>OPTICAL FULLSCREEN PROJECTION</span>
+            <span class="holo-badge holo-badge-listening">ZERO UI BLEED</span>
+          </div>
+          <p style="font-size:10.5px; color:#94a3b8; margin-bottom:10px; line-height:1.4;">
+            Removes all browser bars, HUDs and buttons. Leaves only the 3D hologram on pure black for reflection.
+          </p>
+          <button id="btn-calib-fullscreen" class="holo-btn holo-btn-cyan" style="width:100%; justify-content:center; padding:10px; font-size:12px;">
+            ⛶ ENTER FULLSCREEN PROJECTION MODE
+          </button>
+        </div>
+
+        <!-- IPS Display Optimization -->
+        <div class="holo-section">
+          <div class="holo-section-title">
+            <span>IPS PANEL DISPLAY & MAX BRIGHTNESS</span>
+            <span class="holo-badge holo-badge-cyan">ANTI-GLOW</span>
+          </div>
+          <div class="holo-toggle-row">
+            <label><input type="checkbox" id="chk-ips-mode" ${this.settings.ipsMode ? 'checked' : ''} /> Enable IPS High-Contrast Mode</label>
+          </div>
+          <div class="holo-slider-group" style="margin-top:10px;">
+            <label>Max Luminescence Exposure: <span id="lbl-val-ips-exposure">${this.settings.ipsExposure}x</span></label>
+            <input type="range" id="slider-ips-exposure" min="0.8" max="2.5" step="0.05" value="${this.settings.ipsExposure}" class="holo-slider" />
+          </div>
+          <div class="holo-slider-group" style="margin-top:8px;">
+            <label>High-Intensity Key Rim Light: <span id="lbl-val-ips-rim">${this.settings.ipsRimBoost}</span></label>
+            <input type="range" id="slider-ips-rim" min="1.5" max="6.5" step="0.2" value="${this.settings.ipsRimBoost}" class="holo-slider" />
+          </div>
+        </div>
+
         <!-- Physical Dimensions -->
         <div class="holo-section">
-          <label class="holo-section-title">PYTHAGOREAN OPTICAL GEOMETRY</label>
+          <div class="holo-section-title">PYTHAGOREAN OPTICAL GEOMETRY</div>
           <div class="holo-slider-group">
             <label>Base Width B (mm): <span id="lbl-val-width">${this.settings.baseWidthMm}mm</span></label>
             <input type="range" id="slider-base-width" min="100" max="1200" value="${this.settings.baseWidthMm}" class="holo-slider" />
@@ -81,7 +122,7 @@ export class StageCalibPanel {
             <label>Stage Height H (mm): <span id="lbl-val-height">${this.settings.baseHeightMm}mm</span></label>
             <input type="range" id="slider-base-height" min="100" max="1200" value="${this.settings.baseHeightMm}" class="holo-slider" />
           </div>
-          <div class="holo-stat-box">
+          <div class="holo-stat-card" style="margin-top:8px;">
             <div>Reflector Hypotenuse C: <strong id="lbl-val-hypot">${this.settings.hypotenuseMm} mm</strong></div>
             <div>Reflector Tilt Angle θ: <strong id="lbl-val-angle">${this.settings.glassAngleDeg}°</strong></div>
             <div>Compensated FOV: <strong id="lbl-val-fov">${this.settings.compensatedFovDeg}°</strong></div>
@@ -90,33 +131,16 @@ export class StageCalibPanel {
 
         <!-- Optical Flip & Inversion -->
         <div class="holo-section">
-          <label class="holo-section-title">OPTICAL REFLECTION TRANSFORM</label>
+          <div class="holo-section-title">OPTICAL REFLECTION TRANSFORM</div>
           <div class="holo-toggle-row">
-            <label><input type="checkbox" id="chk-calib-flip-x" /> Flip Horizontal (ScaleX -1)</label>
-            <label><input type="checkbox" id="chk-calib-flip-y" /> Flip Vertical (ScaleY -1)</label>
-          </div>
-        </div>
-
-        <!-- Hologram Shader Settings -->
-        <div class="holo-section">
-          <label class="holo-section-title">HOLOGRAPHIC SHADER UNIFORMS</label>
-          <div class="holo-slider-group">
-            <label>Fresnel Rim Power: <span id="lbl-val-fresnel">${this.settings.fresnelPower}</span></label>
-            <input type="range" id="slider-fresnel-power" min="0.5" max="5.0" step="0.1" value="${this.settings.fresnelPower}" class="holo-slider" />
-          </div>
-          <div class="holo-slider-group">
-            <label>Scanline Intensity: <span id="lbl-val-scanlines">${this.settings.scanlineIntensity}</span></label>
-            <input type="range" id="slider-scanlines" min="0" max="1.0" step="0.05" value="${this.settings.scanlineIntensity}" class="holo-slider" />
-          </div>
-          <div class="holo-slider-group">
-            <label>Glitch Noise: <span id="lbl-val-glitch">${this.settings.glitchIntensity}</span></label>
-            <input type="range" id="slider-glitch" min="0" max="1.0" step="0.05" value="${this.settings.glitchIntensity}" class="holo-slider" />
+            <label><input type="checkbox" id="chk-calib-flip-x" ${this.settings.flipX ? 'checked' : ''} /> Flip Horizontal (ScaleX -1)</label>
+            <label><input type="checkbox" id="chk-calib-flip-y" ${this.settings.flipY ? 'checked' : ''} /> Flip Vertical (ScaleY -1)</label>
           </div>
         </div>
 
         <!-- Presets -->
         <div class="holo-section">
-          <label class="holo-section-title">STAGE PRESETS</label>
+          <div class="holo-section-title">STAGE PRESETS</div>
           <div class="holo-btn-grid">
             <button class="holo-btn holo-btn-secondary" data-preset="15inch">15.6" Desktop (45°)</button>
             <button class="holo-btn holo-btn-secondary" data-preset="tablet">11" Tablet (45°)</button>
@@ -137,6 +161,39 @@ export class StageCalibPanel {
 
     const btnClose = this.container.querySelector('#btn-close-calib');
     btnClose?.addEventListener('click', () => this.toggle(false));
+
+    // Fullscreen button
+    const btnFs = this.container.querySelector('#btn-calib-fullscreen');
+    btnFs?.addEventListener('click', () => {
+      this.callbacks.onFullscreenToggle?.();
+    });
+
+    // IPS Controls
+    const chkIPS = this.container.querySelector('#chk-ips-mode') as HTMLInputElement;
+    const sliderExposure = this.container.querySelector('#slider-ips-exposure') as HTMLInputElement;
+    const sliderRim = this.container.querySelector('#slider-ips-rim') as HTMLInputElement;
+    const lblExp = this.container.querySelector('#lbl-val-ips-exposure');
+    const lblRim = this.container.querySelector('#lbl-val-ips-rim');
+
+    const updateIPS = () => {
+      this.settings.ipsMode = chkIPS.checked;
+      this.settings.ipsExposure = parseFloat(sliderExposure.value);
+      this.settings.ipsRimBoost = parseFloat(sliderRim.value);
+
+      if (lblExp) lblExp.textContent = `${this.settings.ipsExposure.toFixed(2)}x`;
+      if (lblRim) lblRim.textContent = `${this.settings.ipsRimBoost.toFixed(1)}`;
+
+      this.callbacks.onIPSOptimizationChange?.(
+        this.settings.ipsMode,
+        this.settings.ipsExposure,
+        this.settings.ipsRimBoost
+      );
+      this.callbacks.onChange?.(this.settings);
+    };
+
+    chkIPS?.addEventListener('change', updateIPS);
+    sliderExposure?.addEventListener('input', updateIPS);
+    sliderRim?.addEventListener('input', updateIPS);
 
     // Width & Height sliders
     const sliderW = this.container.querySelector('#slider-base-width') as HTMLInputElement;
@@ -177,32 +234,6 @@ export class StageCalibPanel {
       this.callbacks.onChange?.(this.settings);
     });
 
-    // Shaders
-    const sliderFresnel = this.container.querySelector('#slider-fresnel-power') as HTMLInputElement;
-    const sliderScan = this.container.querySelector('#slider-scanlines') as HTMLInputElement;
-    const sliderGlitch = this.container.querySelector('#slider-glitch') as HTMLInputElement;
-
-    sliderFresnel?.addEventListener('input', () => {
-      this.settings.fresnelPower = parseFloat(sliderFresnel.value);
-      const lbl = this.container?.querySelector('#lbl-val-fresnel');
-      if (lbl) lbl.textContent = `${this.settings.fresnelPower}`;
-      this.callbacks.onChange?.(this.settings);
-    });
-
-    sliderScan?.addEventListener('input', () => {
-      this.settings.scanlineIntensity = parseFloat(sliderScan.value);
-      const lbl = this.container?.querySelector('#lbl-val-scanlines');
-      if (lbl) lbl.textContent = `${this.settings.scanlineIntensity}`;
-      this.callbacks.onChange?.(this.settings);
-    });
-
-    sliderGlitch?.addEventListener('input', () => {
-      this.settings.glitchIntensity = parseFloat(sliderGlitch.value);
-      const lbl = this.container?.querySelector('#lbl-val-glitch');
-      if (lbl) lbl.textContent = `${this.settings.glitchIntensity}`;
-      this.callbacks.onChange?.(this.settings);
-    });
-
     // Presets
     const presetButtons = this.container.querySelectorAll('[data-preset]');
     presetButtons.forEach(btn => {
@@ -229,13 +260,8 @@ export class StageCalibPanel {
   public toggle(force?: boolean): void {
     this.isVisible = force !== undefined ? force : !this.isVisible;
     if (this.container) {
-      if (this.isVisible) {
-        this.container.classList.remove('stage-calib-closed');
-        this.container.classList.add('stage-calib-open');
-      } else {
-        this.container.classList.remove('stage-calib-open');
-        this.container.classList.add('stage-calib-closed');
-      }
+      this.container.classList.toggle('stage-calib-closed', !this.isVisible);
+      this.container.classList.toggle('stage-calib-open', this.isVisible);
     }
   }
 

@@ -611,3 +611,71 @@
   display: flex;
   gap: 8px;
 }
+
+/* ====================================================================
+   FULLSCREEN OPTICAL PROJECTION MODE (ZERO UI BLEED)
+   ==================================================================== */
+body.holo-projection-mode .holo-top-bar,
+body.holo-projection-mode .holo-hud,
+body.holo-projection-mode .holo-drawer {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.3s ease-out;
+}
+
+/* Mirror Flip when projected into 45° glass */
+body.holo-mirror-horizontal #hologram-viewport canvas {
+  transform: scaleX(-1);
+}
+
+/* Discreet floating exit button revealed on hover in projection mode */
+#btn-exit-projection {
+  display: none;
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 999;
+  background: rgba(3, 14, 28, 0.7);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  color: #00f0ff;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-family: var(--holo-font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  opacity: 0.15;
+  transition: opacity 0.2s, background 0.2s;
+}
+
+body.holo-projection-mode #btn-exit-projection {
+  display: block;
+}
+
+#btn-exit-projection:hover {
+  opacity: 1.0;
+  background: rgba(0, 240, 255, 0.25);
+  box-shadow: 0 0 15px var(--holo-cyan-glow);
+}
+
+/* Projection Toast Notification */
+#holo-projection-toast {
+  display: none;
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(2, 10, 24, 0.9);
+  border: 1px solid var(--holo-cyan);
+  color: #e2e8f0;
+  padding: 10px 20px;
+  border-radius: 24px;
+  font-family: var(--holo-font-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  z-index: 1000;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 20px var(--holo-cyan-glow);
+  pointer-events: none;
+}
+
