@@ -53,7 +53,7 @@ export class UniversalModelLoader {
     for (const mesh of model.skinnedMeshes) {
       const clonedMaterial = hologramShaderMaterial.clone();
       // Ensure skinning attributes are handled by Three.js shader chunk
-      clonedMaterial.skinning = true;
+      (clonedMaterial as any).skinning = true;
       clonedMaterial.transparent = true;
       clonedMaterial.depthWrite = false;
       mesh.material = clonedMaterial;

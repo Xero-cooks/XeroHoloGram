@@ -4,7 +4,7 @@ export class RenderOptimizer {
   public static optimizeScene(scene: THREE.Scene): void {
     scene.traverse((obj: THREE.Object3D) => {
       // Disable auto matrix updates on non-animated static meshes
-      if (obj instanceof THREE.Mesh && !obj.isSkinnedMesh && obj.children.length === 0) {
+      if (obj instanceof THREE.Mesh && !(obj as any).isSkinnedMesh && obj.children.length === 0) {
         obj.matrixAutoUpdate = false;
         obj.updateMatrix();
       }
