@@ -57,6 +57,7 @@ export type KinematicPacketCallback = (packet: D3KinematicPacket) => void;
 export type DecisionPacketCallback = (packet: AgenticDecisionPacket) => void;
 export type ToolActionCallback = (tool: ToolActionCall) => void;
 export type AudioChunkCallback = (header: WSBinaryAudioHeader, pcmData: Float32Array) => void;
+export type RawAudioChunkCallback = (header: WSBinaryAudioHeader, rawBytes: ArrayBuffer) => void;
 export type StatusCallback = (status: 'connected' | 'disconnected' | 'reconnecting' | 'error') => void;
 export type RTTCallback = (rttMs: number) => void;
 
@@ -77,6 +78,7 @@ export class HoloSocketClient {
   private decisionCallbacks: Set<DecisionPacketCallback> = new Set();
   private toolCallbacks: Set<ToolActionCallback> = new Set();
   private audioCallbacks: Set<AudioChunkCallback> = new Set();
+  private rawAudioCallbacks: Set<RawAudioChunkCallback> = new Set();
   private statusCallbacks: Set<StatusCallback> = new Set();
   private rttCallbacks: Set<RTTCallback> = new Set();
 
@@ -197,6 +199,8 @@ export class HoloSocketClient {
     }
 
     const header: WSBinaryAudioHeader = { seqId, sampleRate, numSamples, flags };
+    const rawPayload = buffer.slice(16);
+    this.rawAudioCallbacks.forEach(cb => cb(header, rawPayload));
     this.audioCallbacks.forEach(cb => cb(header, float32Samples));
   }
 
@@ -249,6 +253,11 @@ export class HoloSocketClient {
   public onAudio(cb: AudioChunkCallback): () => void {
     this.audioCallbacks.add(cb);
     return () => this.audioCallbacks.delete(cb);
+  }
+
+  public onRawAudio(cb: RawAudioChunkCallback): () => void {
+    this.rawAudioCallbacks.add(cb);
+    return () => this.rawAudioCallbacks.delete(cb);
   }
 
   public onStatus(cb: StatusCallback): () => void {
