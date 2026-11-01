@@ -222,6 +222,43 @@ If your laptop hinge opens fully to $180^\circ$ (common on ThinkPads, ASUS Zenbo
 - **Immediate Reflexes**: On `VAD_SPEECH_START` ($<30\,\text{ms}$), if the hologram is currently speaking, it flushes client audio buffers, emits an interrupt packet over WebSocket, and transitions into `listening_attentive` posture (slight head tilt and forward lean).
 - **Speculative D3 Pre-Warm**: When an interim transcript stabilizes for $>350\,\text{ms}$, a speculative preview is dispatched to pre-compute acknowledgement gestures before the user even finishes speaking!
 
+### 6. Decision-Based LLM Engine & Bounded Policy Harness ([`decision_llm.py`](backend/app/llm/decision_llm.py) / [`AICoreModal.ts`](frontend/src/ui/AICoreModal.ts))
+- **From Naive Generation to Structured Decision Policy**: Traditional conversational agents treat LLMs as unconstrained text generators, resulting in loose drift, hallucinations, and uncoordinated motion. `XeroHoloGram` enforces a **Bounded Decision Policy contract**:
+  ```json
+  {
+    "thought_trace": "User instructed system telemetry inspection. Actuating wrist terminal and terminal_summon posture.",
+    "intent_class": "summon_terminal",
+    "confidence": 0.99,
+    "speech_response": "Holographic wrist terminal deployed. Displaying real-time system diagnostics and telemetry stream.",
+    "emotion": "analytical_focused",
+    "gaze_vector": {"x": -0.2, "y": 0.15, "z": 0.85},
+    "holo_shader_state": "magenta_glitch",
+    "tool_call": {
+      "name": "summon_wrist_terminal",
+      "parameters": {"display_mode": "diagnostics", "target_joint": "lower_arm_L"}
+    },
+    "gesture_sequence": [
+      {
+        "trigger_ms": 0,
+        "duration_ms": 1200,
+        "base_preset": "terminal_summon",
+        "blend_weight": 1.0,
+        "bone_angle_overrides_deg": {
+          "upper_arm_L": [60.0, 30.0, 40.0],
+          "lower_arm_L": [90.0, 0.0, 20.0],
+          "hand_L": [0.0, 15.0, -10.0],
+          "head": [12.0, 15.0, -4.0]
+        }
+      }
+    ]
+  }
+  ```
+- **Dual-Stream Execution**:
+  - **Stream A (Audio)**: Spoken response clauses fed into `ClauseChunker` $\to$ 24kHz streaming Edge/ElevenLabs/Cartesia TTS.
+  - **Stream B (Kinematics & Tools)**: Dispatched immediately via WebSocket to actuate the 60Hz $SO(3)$ spring solver, gaze look-at target, and floating holographic widgets in parallel.
+- **Offline Deterministic Fallback**: If external API keys are unset or network fails, an instant (<1ms) bounded heuristic policy executes, ensuring 100% reliability with zero external dependencies.
+- **Interactive Policy Inspector**: The frontend AI Core modal features a live Decision Inspector card displaying resolved intent, confidence score, tool triggers, and the agent's chain-of-thought scratchpad in real time.
+
 ---
 
 ## ◈ Quickstart & Installation
