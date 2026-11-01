@@ -1,7 +1,19 @@
+import { ClientVAD, VADConfig } from './ClientVAD';
+
 export interface SpeechSensorCallbacks {
   onVADSpeechStart: () => void;
+  onVADSpeechEnd?: () => void;
   onInterimStable: (interimText: string) => void;
   onFinalTranscript: (finalText: string) => void;
+  onRMSUpdate?: (rms: number, isSpeaking: boolean) => void;
+}
+
+export interface SpeechSensorOptions {
+  energyThreshold?: number;
+  speechHangoverMs?: number;
+  silenceEndpointMs?: number;
+  minSpeechDurationMs?: number;
+  language?: string;
 }
 
 export class SpeechSensor {
@@ -10,23 +22,49 @@ export class SpeechSensor {
   private mediaStream: MediaStream | null = null;
   private analyser: AnalyserNode | null = null;
   private callbacks: SpeechSensorCallbacks;
+  private vad: ClientVAD;
 
-  private lastInterimText: string = "";
-  private interimStabilizeTimer: any = null;
   private isListening: boolean = false;
-  private isSpeakingVAD: boolean = false;
+  private isUserSpeaking: boolean = false;
+  private pendingInterimText: string = "";
+  private lastStabilizedText: string = "";
+  
+  // Timing parameters
+  private silenceEndpointMs: number = 750; // Milliseconds of silence after speech to trigger turn finalization
+  private endpointTimer: any = null;
+  private interimStabilizeTimer: any = null;
+  private restartTimeout: any = null;
+  private animFrameId: number | null = null;
+  private language: string = 'en-US';
 
-  constructor(callbacks: SpeechSensorCallbacks) {
+  constructor(callbacks: SpeechSensorCallbacks, options?: SpeechSensorOptions) {
     this.callbacks = callbacks;
+    this.silenceEndpointMs = options?.silenceEndpointMs ?? 750;
+    this.language = options?.language ?? 'en-US';
+
+    const vadConfig: VADConfig = {
+      energyThreshold: options?.energyThreshold ?? 0.025,
+      speechHangoverMs: options?.speechHangoverMs ?? 350,
+      minSpeechDurationMs: options?.minSpeechDurationMs ?? 40
+    };
+
+    this.vad = new ClientVAD(vadConfig, {
+      onSpeechStart: () => this.handleVADOnset(),
+      onSpeechEnd: () => this.handleVADOffset()
+    });
   }
 
   public async start(): Promise<void> {
     if (this.isListening) return;
 
-    // 1. Initialize Web Audio VAD
+    // 1. Initialize Web Audio Hardware Stream & VAD Analyser
     try {
       this.mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
         video: false,
       });
 
@@ -34,97 +72,244 @@ export class SpeechSensor {
       this.audioContext = new AudioCtx();
       const source = this.audioContext.createMediaStreamSource(this.mediaStream);
       this.analyser = this.audioContext.createAnalyser();
-      this.analyser.fftSize = 256;
+      this.analyser.fftSize = 512;
       source.connect(this.analyser);
 
+      this.isListening = true;
       this.monitorVADLoop();
     } catch (err) {
-      console.warn('[SpeechSensor] Microphone capture unavailable:', err);
+      console.warn('[SpeechSensor] Microphone capture unavailable or permission denied:', err);
     }
 
-    // 2. Initialize Browser STT
+    // 2. Initialize Browser STT (Web Speech API)
+    this.initSpeechRecognition();
+  }
+
+  private initSpeechRecognition(): void {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
+    if (!SpeechRecognition) {
+      console.warn('[SpeechSensor] Browser SpeechRecognition API not supported.');
+      return;
+    }
+
+    try {
       this.recognition = new SpeechRecognition();
       this.recognition.continuous = true;
       this.recognition.interimResults = true;
-      this.recognition.lang = 'en-US';
+      this.recognition.maxAlternatives = 1;
+      this.recognition.lang = this.language;
+
+      this.recognition.onstart = () => {
+        // Recognition loop active
+      };
+
+      this.recognition.onspeechstart = () => {
+        this.handleVADOnset();
+      };
 
       this.recognition.onresult = (event: any) => {
         let interim = '';
+        let finalFromBrowser = '';
+
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            const finalText = event.results[i][0].transcript.trim();
-            if (finalText) {
-              this.callbacks.onFinalTranscript(finalText);
-              this.lastInterimText = "";
-              if (this.interimStabilizeTimer) clearTimeout(this.interimStabilizeTimer);
-            }
+          const res = event.results[i];
+          if (res.isFinal) {
+            finalFromBrowser += res[0].transcript;
           } else {
-            interim += event.results[i][0].transcript;
+            interim += res[0].transcript;
           }
         }
 
-        if (interim.trim()) {
-          this.handleInterimText(interim.trim());
+        const incomingText = (finalFromBrowser || interim).trim();
+        if (incomingText) {
+          this.handleIncomingSpeechText(incomingText, !!finalFromBrowser);
+        }
+      };
+
+      this.recognition.onerror = (event: any) => {
+        // Non-fatal recognition events
+        if (event.error !== 'no-speech' && event.error !== 'aborted') {
+          console.warn('[SpeechSensor] SpeechRecognition error:', event.error);
+        }
+      };
+
+      this.recognition.onend = () => {
+        // Web Speech API terminates on silence or timeouts; auto-restart if still listening
+        if (this.isListening) {
+          if (this.restartTimeout) clearTimeout(this.restartTimeout);
+          this.restartTimeout = setTimeout(() => {
+            if (this.isListening) {
+              try {
+                this.recognition?.start();
+              } catch {
+                // Ignore if already active
+              }
+            }
+          }, 80);
         }
       };
 
       this.recognition.start();
+    } catch (err) {
+      console.warn('[SpeechSensor] Failed to start SpeechRecognition:', err);
     }
-
-    this.isListening = true;
   }
 
-  private handleInterimText(text: string): void {
-    if (text === this.lastInterimText) return;
-    this.lastInterimText = text;
+  private handleVADOnset(): void {
+    if (!this.isUserSpeaking) {
+      this.isUserSpeaking = true;
+      // Immediate reflex barge-in notification
+      this.callbacks.onVADSpeechStart();
+    }
+    // Clear any pending endpoint timer since user is currently speaking
+    if (this.endpointTimer) {
+      clearTimeout(this.endpointTimer);
+      this.endpointTimer = null;
+    }
+  }
 
-    if (this.interimStabilizeTimer) clearTimeout(this.interimStabilizeTimer);
-    // When interim speech stabilizes for >350ms, fire speculative preview
-    this.interimStabilizeTimer = setTimeout(() => {
-      this.callbacks.onInterimStable(this.lastInterimText);
-    }, 350);
+  private handleVADOffset(): void {
+    this.callbacks.onVADSpeechEnd?.();
+    // Start silence endpointing timer to finalize the turn
+    this.scheduleEndpointCommit();
+  }
+
+  private handleIncomingSpeechText(text: string, isBrowserFinal: boolean): void {
+    // If text arrived, user is definitely speaking
+    this.handleVADOnset();
+    this.pendingInterimText = text;
+
+    // Speculative interim preview stabilization (>250ms)
+    if (text !== this.lastStabilizedText) {
+      this.lastStabilizedText = text;
+      if (this.interimStabilizeTimer) clearTimeout(this.interimStabilizeTimer);
+      this.interimStabilizeTimer = setTimeout(() => {
+        if (this.pendingInterimText) {
+          this.callbacks.onInterimStable(this.pendingInterimText);
+        }
+      }, 250);
+    }
+
+    // If browser emitted isFinal, or schedule silence endpointing
+    if (isBrowserFinal) {
+      this.commitFinalTurn(text);
+    } else {
+      this.scheduleEndpointCommit();
+    }
+  }
+
+  private scheduleEndpointCommit(): void {
+    if (this.endpointTimer) {
+      clearTimeout(this.endpointTimer);
+    }
+
+    // Silence Endpointing Timer:
+    // If user stops speaking and stays silent for silenceEndpointMs, commit turn!
+    this.endpointTimer = setTimeout(() => {
+      if (this.pendingInterimText && this.pendingInterimText.trim().length > 0) {
+        this.commitFinalTurn(this.pendingInterimText.trim());
+      } else {
+        this.isUserSpeaking = false;
+      }
+    }, this.silenceEndpointMs);
+  }
+
+  private commitFinalTurn(finalText: string): void {
+    if (this.endpointTimer) {
+      clearTimeout(this.endpointTimer);
+      this.endpointTimer = null;
+    }
+    if (this.interimStabilizeTimer) {
+      clearTimeout(this.interimStabilizeTimer);
+      this.interimStabilizeTimer = null;
+    }
+
+    this.isUserSpeaking = false;
+    this.pendingInterimText = "";
+    this.lastStabilizedText = "";
+    this.vad.reset();
+
+    // Trigger turn completion
+    this.callbacks.onFinalTranscript(finalText);
+
+    // Cleanly cycle recognition so Chrome resets its internal recognition buffer
+    try {
+      this.recognition?.abort();
+    } catch {
+      // Ignore
+    }
   }
 
   private monitorVADLoop = (): void => {
     if (!this.analyser || !this.isListening) return;
 
-    const data = new Float32Array(this.analyser.fftSize);
-    this.analyser.getFloatTimeDomainData(data);
+    const buffer = new Float32Array(this.analyser.fftSize);
+    this.analyser.getFloatTimeDomainData(buffer);
 
-    let sum = 0;
-    for (let i = 0; i < data.length; i++) {
-      sum += data[i] * data[i];
-    }
-    const rms = Math.sqrt(sum / data.length);
+    const now = performance.now();
+    const isSpeaking = this.vad.processAudioFrame(buffer, now);
+    const rms = this.vad.getCurrentRMS();
 
-    if (rms > 0.035) {
-      if (!this.isSpeakingVAD) {
-        this.isSpeakingVAD = true;
-        // Immediate reflex barge-in (<30ms)
-        this.callbacks.onVADSpeechStart();
-      }
-    } else {
-      this.isSpeakingVAD = false;
-    }
+    // Notify live VU meter
+    this.callbacks.onRMSUpdate?.(rms, isSpeaking);
 
-    requestAnimationFrame(this.monitorVADLoop);
+    this.animFrameId = requestAnimationFrame(this.monitorVADLoop);
   };
+
+  public setEnergyThreshold(threshold: number): void {
+    this.vad.setEnergyThreshold(threshold);
+  }
+
+  public setSpeechHangoverMs(ms: number): void {
+    this.vad.setSpeechHangoverMs(ms);
+  }
+
+  public setSilenceEndpointMs(ms: number): void {
+    this.silenceEndpointMs = Math.max(300, Math.min(ms, 2500));
+  }
+
+  public setLanguage(lang: string): void {
+    this.language = lang;
+    if (this.recognition) {
+      this.recognition.lang = lang;
+    }
+  }
+
+  public getRMS(): number {
+    return this.vad.getCurrentRMS();
+  }
+
+  public getIsSpeaking(): boolean {
+    return this.isUserSpeaking || this.vad.getIsSpeaking();
+  }
 
   public stop(): void {
     this.isListening = false;
+    this.isUserSpeaking = false;
+    this.pendingInterimText = "";
+
+    if (this.endpointTimer) clearTimeout(this.endpointTimer);
+    if (this.interimStabilizeTimer) clearTimeout(this.interimStabilizeTimer);
+    if (this.restartTimeout) clearTimeout(this.restartTimeout);
+    if (this.animFrameId) cancelAnimationFrame(this.animFrameId);
+
     if (this.recognition) {
-      this.recognition.stop();
+      try {
+        this.recognition.stop();
+      } catch {}
       this.recognition = null;
     }
+
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach(t => t.stop());
       this.mediaStream = null;
     }
+
     if (this.audioContext) {
-      this.audioContext.close();
+      this.audioContext.close().catch(() => {});
       this.audioContext = null;
     }
+
+    this.vad.reset();
   }
 }
