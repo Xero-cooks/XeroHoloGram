@@ -1,8 +1,10 @@
 export class AudioStreamPlayer {
   private ctx: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
   private nextPlayTime: number = 0;
   private activeSources: AudioBufferSourceNode[] = [];
   private sampleRate: number;
+  private freqBuffer: Uint8Array = new Uint8Array(256);
 
   constructor(sampleRate: number = 24000) {
     this.sampleRate = sampleRate;
@@ -12,6 +14,10 @@ export class AudioStreamPlayer {
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       this.ctx = new AudioCtx({ sampleRate: this.sampleRate });
+      this.analyser = this.ctx.createAnalyser();
+      this.analyser.fftSize = 512;
+      this.analyser.connect(this.ctx.destination);
+      this.freqBuffer = new Uint8Array(this.analyser.frequencyBinCount);
     }
     if (this.ctx.state === 'suspended') {
       this.ctx.resume();
@@ -22,11 +28,16 @@ export class AudioStreamPlayer {
   public playChunk(float32Samples: Float32Array): void {
     const ctx = this.initContext();
     const buffer = ctx.createBuffer(1, float32Samples.length, this.sampleRate);
-    buffer.copyToChannel(float32Samples, 0);
+    buffer.copyToChannel(float32Samples as any, 0);
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
-    source.connect(ctx.destination);
+    
+    if (this.analyser) {
+      source.connect(this.analyser);
+    } else {
+      source.connect(ctx.destination);
+    }
 
     const now = ctx.currentTime;
     const startTime = Math.max(now, this.nextPlayTime);
@@ -38,6 +49,13 @@ export class AudioStreamPlayer {
     source.onended = () => {
       this.activeSources = this.activeSources.filter(s => s !== source);
     };
+  }
+
+  public getFrequencyData(): Uint8Array {
+    if (this.analyser) {
+      this.analyser.getByteFrequencyData(this.freqBuffer as any);
+    }
+    return this.freqBuffer;
   }
 
   /**

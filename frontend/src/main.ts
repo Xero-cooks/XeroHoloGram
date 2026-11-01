@@ -1,183 +1,330 @@
 import * as THREE from 'three';
+import './styles/holo-ui.css';
 import { DEFAULT_STAGE_CONFIG } from './config/stageConfig';
 import { HologramStage } from './renderer/HologramStage';
 import { HoloParticles } from './renderer/HoloParticles';
-import { StageCalibrationController } from './optics/CalibrationController';
-import { DefaultAvatarGenerator } from './rig/DefaultAvatarGenerator';
-import { BoneRetargeter } from './rig/BoneRetargeter';
-import { VisualBoneStudio } from './studio/BoneStudio';
-import { MotionBlendEngine } from './kinematics/MotionBlendEngine';
-import { WebAudioManager } from './audio/WebAudioManager';
-import { MicCaptureStream } from './audio/MicCaptureStream';
-import { ClientVAD } from './audio/ClientVAD';
-import { AudioJitterBuffer } from './audio/AudioJitterBuffer';
-import { FFTFormantAnalyzer } from './audio/FFTFormantAnalyzer';
-import { HybridLipSyncEngine } from './audio/HybridLipSyncEngine';
-import { MorphBlendshapeDriver } from './audio/MorphBlendshapeDriver';
-import { VisemeName } from './audio/visemeTypes';
-import { HologramWSClient } from './ws/HologramWSClient';
-import { BargeInCoordinator } from './ws/BargeInCoordinator';
-import { OrchestratorHUD } from './ui/OrchestratorHUD';
-import { OpticalControls } from './ui/OpticalControls';
-import { ModelPickerDrawer } from './ui/ModelPickerDrawer';
-import { AudioSettingsPanel } from './ui/AudioSettingsPanel';
-import { DiagnosticHUD } from './ui/DiagnosticHUD';
+import { ProceduralRig, XeroKratosRig } from './rig/ProceduralRig';
+import { Joint28 } from './rig/CanonicalSkeleton';
+import { SpringSolver } from './kinematics/SpringSolver';
+import { IdleLifeGenerator } from './kinematics/IdleLife';
+import { PoseBlender } from './kinematics/PoseBlender';
+import { AudioStreamPlayer } from './audio/AudioStreamPlayer';
+import { VisemeAnalyzer } from './audio/VisemeAnalyzer';
+import { SpeechSensor } from './audio/SpeechSensor';
+import { HoloSocketClient, D3KinematicPacket } from './network/HoloSocketClient';
+import { FloatingWidgets } from './shaders/FloatingWidgets';
+import { RigStudioDrawer } from './ui/RigStudioDrawer';
+import { StageCalibPanel, StageCalibSettings } from './ui/StageCalibPanel';
+import { TelemetryHUD } from './ui/TelemetryHUD';
 
+/**
+ * XeroHoloGram Main Application Bootstrapper
+ * Orchestrates 60 FPS WebGL Hologram Viewport, SO(3) Kinematics,
+ * Floating Augmented Cybernetic UI, and Dual-Stream Audio/D3 WebSocket.
+ */
 async function bootstrapHologramApp() {
   const container = document.getElementById('hologram-viewport');
   if (!container) return;
 
-  // 1. Stage Calibration & WebGL Viewport
-  const calibrationController = new StageCalibrationController(DEFAULT_STAGE_CONFIG.optical);
+  // 1. Initialize Stage & Camera
   const stage = new HologramStage(container, DEFAULT_STAGE_CONFIG);
 
-  // Synchronize calibration changes with stage camera projection
-  calibrationController.subscribe(opticalConfig => {
-    stage.updateConfig({ ...DEFAULT_STAGE_CONFIG, optical: opticalConfig });
-  });
-
-  // 2. Ambient Holographic Dust Field
-  const particles = new HoloParticles(200);
+  // 2. Ambient Holographic Dust Particles
+  const particles = new HoloParticles(250);
   stage.scene.add(particles.points);
 
-  // 3. Default Humanoid Rigged Avatar
-  const { model: currentModel, mappingTable } = DefaultAvatarGenerator.createDefaultAvatar();
-  stage.scene.add(currentModel.root);
+  // 3. Default Procedural Rig (XeroKratos)
+  let currentRig: XeroKratosRig = ProceduralRig.createXeroKratos();
+  stage.scene.add(currentRig.root);
 
-  const retargeter = new BoneRetargeter(currentModel.bones, mappingTable);
-  const blendshapeDriver = new MorphBlendshapeDriver(currentModel.skinnedMeshes, currentModel.bones.get('Jaw'));
+  // 4. Floating Cybernetic Hologram Widgets
+  const floatingWidgets = new FloatingWidgets();
+  stage.scene.add(floatingWidgets.group);
 
-  // 4. Interactive 3D Visual Bone Studio Overlay
-  const boneStudio = new VisualBoneStudio();
-  boneStudio.buildMarkers(currentModel.bones, mappingTable);
-  boneStudio.setVisible(false);
-  stage.scene.add(boneStudio.group);
+  // 5. Kinematics Stack (60Hz Critically Damped Spring Solver + Idle Life)
+  const springSolver = new SpringSolver();
+  const idleLife = new IdleLifeGenerator();
+  let currentBasePose: string = 'neutral';
+  let currentOverrides: Record<string, [number, number, number]> = {};
+  let currentBlendWeight: number = 1.0;
 
-  // 5. 60Hz SO(3) Kinematics & Physics Engine
-  const motionEngine = new MotionBlendEngine();
+  // 6. Audio Playback & Viseme Synthesis
+  const audioPlayer = new AudioStreamPlayer(24000);
+  const visemeAnalyzer = new VisemeAnalyzer(24000, 512);
 
-  // 6. Audio Pipeline & Lip-Sync
-  const audioManager = new WebAudioManager();
-  const micCapture = new MicCaptureStream();
-  const jitterBuffer = new AudioJitterBuffer(24000, 60);
-  const fftAnalyzer = new FFTFormantAnalyzer(24000, 512);
-  const lipSyncEngine = new HybridLipSyncEngine();
+  // 7. Full-Duplex Multiplexer WebSocket Client
+  const wsClient = new HoloSocketClient(DEFAULT_STAGE_CONFIG.wsEndpoint);
 
-  // 7. Full-Duplex WebSocket Client & Barge-In Coordinator
-  const wsClient = new HologramWSClient(DEFAULT_STAGE_CONFIG.wsEndpoint);
-  const bargeInCoordinator = new BargeInCoordinator(
-    wsClient,
-    jitterBuffer,
-    audioManager,
-    motionEngine,
-    'sess_demo'
-  );
+  // 8. Telemetry HUD & Diagnostics
+  const telemetryHUD = new TelemetryHUD();
 
-  // 8. Client-side VAD
-  const vad = new ClientVAD(
-    { energyThreshold: 0.03, speechHangoverMs: 250, minSpeechDurationMs: 70 },
-    {
-      onSpeechStart: () => {
-        bargeInCoordinator.triggerBargeIn();
-      },
-      onSpeechEnd: () => {
-        // Speech ended, ready for LLM
+  // 9. Speech Sensor (Web Speech STT + WebAudio VAD)
+  const speechSensor = new SpeechSensor({
+    onVADSpeechStart: () => {
+      // Immediate Barge-In reflex (<30ms)
+      if (audioPlayer.getPlaybackRemainingSec() > 0.05) {
+        audioPlayer.flush();
+        wsClient.sendBargeIn();
+        floatingWidgets.log('[BARGE-IN] Interrupted speech playback');
+        telemetryHUD.updateData({ speechState: 'INTERRUPTED' });
+      } else {
+        telemetryHUD.updateData({ speechState: 'LISTENING' });
       }
-    }
-  );
 
-  // Connect WebSocket binary & JSON handlers
-  wsClient.onAudio((header, pcmSamples) => {
-    jitterBuffer.pushChunk(pcmSamples);
+      // Transition to listening_attentive pose
+      currentBasePose = 'listening_attentive';
+      currentOverrides = {};
+    },
+    onInterimStable: (interimText: string) => {
+      telemetryHUD.updateData({ speechState: 'SPECULATIVE' });
+      wsClient.sendTranscript(interimText, false);
+      floatingWidgets.log(`[STT INTERIM] "${interimText}"`);
+    },
+    onFinalTranscript: (finalText: string) => {
+      telemetryHUD.updateData({ speechState: 'SPEAKING' });
+      wsClient.sendTranscript(finalText, true);
+      floatingWidgets.log(`[STT FINAL] "${finalText}"`);
+    }
   });
 
-  wsClient.onMessage((msg: any) => {
-    if (msg.type === 'kinematic_frame') {
-      const gestureMap = new Map<any, THREE.Quaternion>();
-      for (const g of msg.gestures || []) {
-        const euler = new THREE.Euler(g.rotation_euler[0], g.rotation_euler[1], g.rotation_euler[2], 'YXZ');
-        gestureMap.set(g.bone, new THREE.Quaternion().setFromEuler(euler));
-      }
-      motionEngine.setGesture(gestureMap);
-      if (msg.gaze?.target) {
-        motionEngine.setGazeTarget(new THREE.Vector3(msg.gaze.target[0], msg.gaze.target[1], msg.gaze.target[2]));
-      }
+  // 10. Wire WebSocket Handlers
+  wsClient.onStatus((status) => {
+    floatingWidgets.log(`[WS] Status changed: ${status.toUpperCase()}`);
+    if (status === 'connected') {
+      telemetryHUD.updateData({ shaderState: 'cyan_nominative' });
     }
+  });
+
+  wsClient.onRTT((rttMs) => {
+    telemetryHUD.updateData({ rttMs });
+  });
+
+  wsClient.onAudio((_header, pcmSamples) => {
+    audioPlayer.playChunk(pcmSamples);
+    telemetryHUD.updateData({ speechState: 'SPEAKING' });
+  });
+
+  let gestureKeyframeQueue: Array<{
+    triggerMs: number;
+    durationMs: number;
+    preset: string;
+    weight: number;
+    overrides: Record<string, [number, number, number]>;
+  }> = [];
+  let gestureStartTime = performance.now();
+
+  wsClient.onKinematics((packet: D3KinematicPacket) => {
+    telemetryHUD.updateData({
+      intentClass: packet.intent_class,
+      emotion: packet.emotion,
+      shaderState: packet.holo_shader_state,
+      d3LatencyMs: Math.round(packet.gesture_sequence.length ? 120 : 80)
+    });
+
+    floatingWidgets.log(`[D3] Intent: ${packet.intent_class} (${packet.emotion})`);
+
+    // Handle tool summon / terminal intent
+    if (packet.intent_class.includes('terminal') || packet.intent_class.includes('architecture')) {
+      floatingWidgets.setTerminalVisible(true);
+    }
+
+    if (packet.intent_class.includes('sub_agent') || packet.intent_class.includes('tool')) {
+      const subId = `worker-${Math.floor(Math.random() * 900 + 100)}`;
+      floatingWidgets.spawnSubAgent(subId, 'Reasoner-Node');
+      setTimeout(() => floatingWidgets.dismissSubAgent(subId), 4000);
+    }
+
+    // Queue gesture sequence
+    gestureStartTime = performance.now();
+    gestureKeyframeQueue = packet.gesture_sequence.map(kf => ({
+      triggerMs: kf.trigger_ms,
+      durationMs: kf.duration_ms,
+      preset: kf.base_preset,
+      weight: kf.blend_weight,
+      overrides: kf.bone_angle_overrides_deg || {}
+    }));
   });
 
   wsClient.connect();
 
-  // 9. UI Orchestrator HUD
-  const hud = new OrchestratorHUD(container);
-  const mount = hud.getMountPoint();
-
-  new OpticalControls(mount, calibrationController);
-  const modelDrawer = new ModelPickerDrawer(mount, {
-    onToggleBoneStudio: (active) => boneStudio.setVisible(active),
-  });
-  const audioPanel = new AudioSettingsPanel(mount, {
-    onMuteToggle: (muted) => micCapture.setMute(muted),
-  });
-  const diagHUD = new DiagnosticHUD(mount);
-
-  // 10. Start Microphone stream on user interaction
-  window.addEventListener('click', async () => {
-    try {
-      await audioManager.getAudioContext();
-      await micCapture.start();
-    } catch {
-      // Audio autoplay policy
+  // 11. Rig Studio & Stage Calibrator UI Drawers
+  const rigDrawer = new RigStudioDrawer({
+    onBoneSelect: (boneName) => {
+      floatingWidgets.log(`Selected bone: ${boneName}`);
+    },
+    onTestAngleChange: (boneName, eulerDeg) => {
+      if (boneName in Joint28) {
+        springSolver.setTargetDeg(boneName as Joint28, eulerDeg);
+      }
     }
-  }, { once: true });
+  });
 
-  // 11. Main 60 FPS Holographic Animation Loop
+  // Populate joints list with canonical bones
+  const detectedNames = Array.from(currentRig.bones.keys());
+  const initialMap: Record<string, string> = {};
+  detectedNames.forEach(name => { initialMap[name] = name; });
+  rigDrawer.populateJoints(detectedNames, initialMap);
+
+  const calibPanel = new StageCalibPanel({
+    onChange: (settings: StageCalibSettings) => {
+      stage.camera.fov = settings.compensatedFovDeg;
+      stage.camera.updateProjectionMatrix();
+      stage.updateConfig({
+        ...DEFAULT_STAGE_CONFIG,
+        optical: {
+          ...DEFAULT_STAGE_CONFIG.optical,
+          flipX: settings.flipX,
+          flipY: settings.flipY,
+        }
+      });
+      floatingWidgets.log(`[CALIB] Glass Angle: ${settings.glassAngleDeg}°, FOV: ${settings.compensatedFovDeg}°`);
+    }
+  });
+
+  // 12. Floating Top Control Bar
+  const topBar = document.createElement('div');
+  topBar.className = 'holo-top-bar';
+  topBar.innerHTML = `
+    <button id="btn-toggle-mic" class="holo-btn holo-btn-cyan">🎙 MIC: OFF</button>
+    <button id="btn-toggle-terminal" class="holo-btn holo-btn-secondary">💻 WRIST HUD</button>
+    <button id="btn-spawn-clone" class="holo-btn holo-btn-secondary">✨ SPAWN AGENT</button>
+    <button id="btn-open-rig-studio" class="holo-btn holo-btn-secondary">🦴 BONE STUDIO</button>
+    <button id="btn-open-calib" class="holo-btn holo-btn-secondary">📐 STAGE CALIB</button>
+  `;
+  document.body.appendChild(topBar);
+
+  let isMicActive = false;
+  const btnMic = topBar.querySelector('#btn-toggle-mic') as HTMLButtonElement;
+  btnMic.addEventListener('click', async () => {
+    isMicActive = !isMicActive;
+    if (isMicActive) {
+      await speechSensor.start();
+      btnMic.textContent = '🎙 MIC: ACTIVE';
+      btnMic.classList.add('holo-btn-active');
+      floatingWidgets.log('[MIC] Continuous SpeechRecognition & VAD started.');
+    } else {
+      speechSensor.stop();
+      btnMic.textContent = '🎙 MIC: OFF';
+      btnMic.classList.remove('holo-btn-active');
+      floatingWidgets.log('[MIC] Speech capture paused.');
+    }
+  });
+
+  const btnTerminal = topBar.querySelector('#btn-toggle-terminal') as HTMLButtonElement;
+  btnTerminal.addEventListener('click', () => {
+    const isVis = !floatingWidgets.isTerminalVisible();
+    floatingWidgets.setTerminalVisible(isVis);
+    btnTerminal.classList.toggle('holo-btn-active', isVis);
+    if (isVis) {
+      currentBasePose = 'terminal_summon';
+    } else {
+      currentBasePose = 'neutral';
+    }
+  });
+
+  const btnSpawn = topBar.querySelector('#btn-spawn-clone') as HTMLButtonElement;
+  btnSpawn.addEventListener('click', () => {
+    const subId = `agent-${Date.now().toString().slice(-4)}`;
+    floatingWidgets.spawnSubAgent(subId, 'Synthesizer-Worker');
+    setTimeout(() => floatingWidgets.dismissSubAgent(subId), 5000);
+  });
+
+  const btnRig = topBar.querySelector('#btn-open-rig-studio');
+  btnRig?.addEventListener('click', () => rigDrawer.toggle());
+
+  const btnCalib = topBar.querySelector('#btn-open-calib');
+  btnCalib?.addEventListener('click', () => calibPanel.toggle());
+
+  // 13. 60 FPS Main Render & Physics Hook
   stage.registerRenderHook((delta, elapsed) => {
-    diagHUD.recordFrame();
+    const now = performance.now();
+    telemetryHUD.tick(delta * 1000);
     particles.update(delta, elapsed);
 
-    // Evaluate Kinematics
-    const headWorldPos = new THREE.Vector3();
-    const headBone = currentModel.bones.get('Head');
-    if (headBone) headBone.getWorldPosition(headWorldPos);
+    // A. Evaluate Gesture Queue Sequence
+    if (gestureKeyframeQueue.length > 0) {
+      const elapsedGestureMs = now - gestureStartTime;
+      let activeIndex = -1;
 
-    const boneRotations = motionEngine.update(elapsed, delta, headWorldPos, currentModel.root.quaternion);
-
-    // Apply to 55-bone skeleton via retargeter
-    for (const [canonical, rot] of boneRotations.entries()) {
-      retargeter.applyBoneRotation(canonical, rot);
-    }
-
-    // Process mic audio and VAD
-    const micRms = micCapture.getVolumeRms();
-    audioPanel.updateVUMeter(micRms);
-
-    // Real-time audio playback & viseme synthesis
-    const analyser = audioManager.getAnalyser();
-    if (analyser) {
-      const freqData = new Uint8Array(analyser.frequencyBinCount);
-      analyser.getByteFrequencyData(freqData);
-      const formants = fftAnalyzer.analyzeFrequencies(freqData);
-
-      const visemeWeights = lipSyncEngine.evaluate(formants, elapsed * 1000.0, delta);
-      blendshapeDriver.applyVisemes(visemeWeights);
-
-      // Find top active viseme for diagnostic hud
-      let topViseme = 'sil';
-      let maxWeight = 0;
-      for (const [vis, w] of Object.entries(visemeWeights)) {
-        if (vis !== VisemeName.sil && w > maxWeight) {
-          maxWeight = w;
-          topViseme = vis;
+      for (let i = 0; i < gestureKeyframeQueue.length; i++) {
+        const kf = gestureKeyframeQueue[i];
+        if (elapsedGestureMs >= kf.triggerMs && elapsedGestureMs < kf.triggerMs + kf.durationMs) {
+          activeIndex = i;
+          currentBasePose = kf.preset;
+          currentOverrides = kf.overrides;
+          currentBlendWeight = kf.weight;
+          break;
         }
       }
-      diagHUD.updateViseme(topViseme);
+
+      if (activeIndex === -1 && elapsedGestureMs >= gestureKeyframeQueue[gestureKeyframeQueue.length - 1].triggerMs + gestureKeyframeQueue[gestureKeyframeQueue.length - 1].durationMs) {
+        gestureKeyframeQueue = [];
+        currentBasePose = 'neutral';
+        currentOverrides = {};
+        currentBlendWeight = 1.0;
+      }
     }
 
-    diagHUD.updateBuffer(jitterBuffer.getBufferedDurationMs());
+    // B. Blend Targets (Base Preset + D3 Overrides)
+    const blendedTargets = PoseBlender.blendPose(currentBasePose, currentOverrides, currentBlendWeight);
+    for (const [joint, anglesDeg] of blendedTargets.entries()) {
+      springSolver.setTargetDeg(joint, anglesDeg);
+    }
+
+    // C. Step 60Hz SO(3) Spring Solver
+    springSolver.step(delta);
+
+    // D. Biological Idle Life (Breathing, Saccades, Blinks)
+    const idleOffsets = idleLife.update(elapsed, delta);
+
+    // E. Real-time Audio Frequency FFT & Viseme Analysis
+    const freqData = audioPlayer.getFrequencyData();
+    const viseme = visemeAnalyzer.analyze(freqData, delta);
+    telemetryHUD.updateData({ visemeEnergy: viseme.rmsEnergy });
+
+    // F. Reactor Core Voice Pulse & Visor Glow
+    currentRig.updateReactorPulse(viseme.rmsEnergy, delta);
+
+    // G. Apply Rotations to 28 Canonical Bones
+    for (const [joint, bone] of currentRig.bones.entries()) {
+      const springRad = springSolver.getCurrentEulerRad(joint);
+      const idleAdd = idleOffsets.jointOffsets.get(joint) || [0, 0, 0];
+
+      // Convert idle deg to rad
+      const idleRadX = (idleAdd[0] * Math.PI) / 180.0;
+      const idleRadY = (idleAdd[1] * Math.PI) / 180.0;
+      const idleRadZ = (idleAdd[2] * Math.PI) / 180.0;
+
+      // Add prosodic beat coupling to forearm and neck
+      let beatPitch = 0;
+      if (joint === Joint28.lower_arm_R || joint === Joint28.lower_arm_L) {
+        beatPitch = viseme.forearmBeatOffsetRad;
+      } else if (joint === Joint28.neck) {
+        beatPitch = viseme.neckBeatOffsetRad;
+      }
+
+      // Apply to bone local rotation
+      bone.rotation.set(
+        springRad.x + idleRadX + beatPitch,
+        springRad.y + idleRadY,
+        springRad.z + idleRadZ
+      );
+    }
+
+    // H. Articulate Jaw Bone for Lip-Sync
+    if (currentRig.jawBone) {
+      currentRig.jawBone.rotation.x = viseme.jawPitchRad;
+    }
+
+    // I. Update Floating Widgets (Wrist Terminal Attachment & Sub-Agent Animations)
+    const leftHandBone = currentRig.bones.get(Joint28.hand_L);
+    floatingWidgets.updateWristAttachment(leftHandBone || null);
+    floatingWidgets.update(now);
   });
 
-  // Start rendering
+  // Start Holographic Stage
   stage.start();
+  floatingWidgets.log('[READY] XeroHoloGram 60FPS Stage Initialized.');
 }
 
 window.addEventListener('DOMContentLoaded', bootstrapHologramApp);

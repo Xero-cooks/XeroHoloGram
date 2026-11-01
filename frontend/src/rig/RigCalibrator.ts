@@ -8,6 +8,17 @@ export interface CalibrationSetting {
   invertZ: boolean;
 }
 
+export interface RigProfile {
+  rig_name: string;
+  rig_type: string;
+  bone_mappings: Record<string, string>;
+  invert_x: boolean;
+  invert_y: boolean;
+  invert_z: boolean;
+  rest_pose_type: 'T_POSE' | 'A_POSE';
+  calib_quaternions: Record<string, [number, number, number, number]>;
+}
+
 export class RigCalibrator {
   private calibrationMap: Map<Joint28, CalibrationSetting> = new Map();
 

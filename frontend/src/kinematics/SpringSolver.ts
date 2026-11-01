@@ -73,6 +73,10 @@ export class SpringSolver {
     return new THREE.Quaternion().setFromEuler(euler);
   }
 
+  public getCurrentEulerRad(joint: Joint28): THREE.Vector3 {
+    return this.currentAngles.get(joint) || new THREE.Vector3();
+  }
+
   public flushVelocities(): void {
     for (const vel of this.velocities.values()) {
       vel.set(0, 0, 0);
