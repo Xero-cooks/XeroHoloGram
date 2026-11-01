@@ -7,7 +7,7 @@ export interface VADConfig {
 export class ClientVAD {
   private config: VADConfig;
   private isSpeaking: boolean = false;
-  private speechStartTime: number = 0;
+  private speechStartTime: number | null = null;
   private lastSpeechTime: number = 0;
   private onSpeechStart?: () => void;
   private onSpeechEnd?: () => void;
@@ -35,7 +35,7 @@ export class ClientVAD {
     if (exceedsThreshold) {
       this.lastSpeechTime = currentTimeMs;
       if (!this.isSpeaking) {
-        if (this.speechStartTime === 0) {
+        if (this.speechStartTime === null) {
           this.speechStartTime = currentTimeMs;
         } else if (currentTimeMs - this.speechStartTime >= this.config.minSpeechDurationMs) {
           this.isSpeaking = true;
@@ -47,11 +47,11 @@ export class ClientVAD {
         // Hangover period check
         if (currentTimeMs - this.lastSpeechTime >= this.config.speechHangoverMs) {
           this.isSpeaking = false;
-          this.speechStartTime = 0;
+          this.speechStartTime = null;
           this.onSpeechEnd?.();
         }
       } else {
-        this.speechStartTime = 0;
+        this.speechStartTime = null;
       }
     }
 
