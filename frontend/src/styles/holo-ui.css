@@ -1,27 +1,54 @@
 /**
  * holo-ui.css
- * High-End Cybernetic Glassmorphic UI & Design System for XeroHoloGram
- * Typography: Modern Clean System Display + Precision Monospace
- * Backdrop: Pure #000000 black canvas void preserved for Pepper's Ghost transparency
+ * High-End Industrial Cybernetic Design System for XeroHoloGram
+ * Typography: Official Geist Variable Font (Clean Linear/Geometric Display & Mono)
+ * Palette: Pure #000000 Optical Void + Precision Black/Grey Gradients
+ * Geometry: Strict Standard Rectangles (Zero Curvy Pills)
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/geist/variable/geist-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/geist/variable/geist-latin-wght-italic.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
 
 :root {
-  --holo-cyan: #00f0ff;
-  --holo-cyan-glow: rgba(0, 240, 255, 0.35);
-  --holo-cyan-dim: rgba(0, 240, 255, 0.12);
-  --holo-purple: #8b5cf6;
-  --holo-purple-glow: rgba(139, 92, 246, 0.35);
-  --holo-green: #10b981;
-  --holo-gold: #f59e0b;
-  --holo-red: #ff0055;
-  --holo-bg-glass: rgba(4, 15, 30, 0.88);
-  --holo-bg-card: rgba(8, 25, 48, 0.75);
-  --holo-border: rgba(0, 240, 255, 0.22);
-  --holo-border-bright: rgba(0, 240, 255, 0.55);
-  --holo-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --holo-font-mono: 'JetBrains Mono', 'Consolas', monospace;
+  --holo-bg-void: #000000;
+  --holo-bg-panel: linear-gradient(180deg, #161618 0%, #09090b 100%);
+  --holo-bg-card: linear-gradient(180deg, #18181b 0%, #0d0d0f 100%);
+  --holo-bg-elevated: linear-gradient(180deg, #222226 0%, #131316 100%);
+  --holo-bg-inset: #050507;
+  --holo-border: rgba(255, 255, 255, 0.10);
+  --holo-border-strong: rgba(255, 255, 255, 0.20);
+  --holo-border-focus: #38bdf8;
+  
+  --holo-cyan: #38bdf8;
+  --holo-cyan-glow: rgba(56, 189, 248, 0.25);
+  --holo-green: #34d399;
+  --holo-gold: #fbbf24;
+  --holo-red: #f43f5e;
+  --holo-purple: #c084fc;
+  
+  --holo-text-primary: #f4f4f5;
+  --holo-text-secondary: #a1a1aa;
+  --holo-text-muted: #71717a;
+  
+  --holo-font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --holo-font-mono: 'Geist Mono', 'SF Mono', 'JetBrains Mono', Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 /* ====================================================================
@@ -29,78 +56,83 @@
    ==================================================================== */
 .holo-top-bar {
   position: absolute;
-  top: 18px;
+  top: 14px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--holo-bg-glass);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  gap: 6px;
+  background: linear-gradient(180deg, #1a1a1e 0%, #0c0c0e 100%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--holo-border);
-  border-radius: 40px;
-  padding: 6px 14px;
+  border-radius: 2px;
+  padding: 4px 8px;
   z-index: 100;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 240, 255, 0.15);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .holo-brand-badge {
   font-family: var(--holo-font-sans);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.2px;
-  color: var(--holo-cyan);
-  padding: 4px 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--holo-text-primary);
+  padding: 4px 8px;
   display: flex;
   align-items: center;
   gap: 8px;
-  border-right: 1px solid rgba(0, 240, 255, 0.2);
+  border-right: 1px solid var(--holo-border);
   margin-right: 4px;
 }
 
 .holo-status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
   background: var(--holo-green);
-  box-shadow: 0 0 8px var(--holo-green);
-  animation: pulse-dot 2s infinite ease-in-out;
+  box-shadow: 0 0 6px var(--holo-green);
+  animation: pulse-dot 2.5s infinite ease-in-out;
 }
 
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.85); }
+  50% { opacity: 0.4; transform: scale(0.9); }
 }
 
 /* ====================================================================
-   CYBERNETIC BUTTONS
+   PRECISION STANDARD RECTANGLE BUTTONS
    ==================================================================== */
 .holo-btn {
   font-family: var(--holo-font-sans);
-  font-size: 11.5px;
+  font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: 0.4px;
-  padding: 7px 13px;
-  border-radius: 20px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border-radius: 2px;
   border: 1px solid var(--holo-border);
-  background: rgba(0, 240, 255, 0.06);
-  color: #e2e8f0;
+  background: linear-gradient(180deg, #18181b 0%, #101012 100%);
+  color: var(--holo-text-primary);
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.15s ease;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   user-select: none;
   white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.holo-btn svg {
+  flex-shrink: 0;
 }
 
 .holo-btn:hover {
-  background: rgba(0, 240, 255, 0.20);
-  border-color: var(--holo-cyan);
-  box-shadow: 0 0 16px var(--holo-cyan-glow);
+  background: linear-gradient(180deg, #242429 0%, #161619 100%);
+  border-color: var(--holo-border-strong);
   color: #ffffff;
-  transform: translateY(-1px);
 }
 
 .holo-btn:active {
@@ -108,37 +140,44 @@
 }
 
 .holo-btn-cyan {
-  background: rgba(0, 240, 255, 0.14);
-  border-color: var(--holo-cyan);
+  background: linear-gradient(180deg, #0e2e42 0%, #061924 100%);
+  border-color: rgba(56, 189, 248, 0.4);
   color: var(--holo-cyan);
 }
 
+.holo-btn-cyan:hover {
+  background: linear-gradient(180deg, #134260 0%, #092537 100%);
+  border-color: var(--holo-cyan);
+  color: #ffffff;
+  box-shadow: 0 0 12px var(--holo-cyan-glow);
+}
+
 .holo-btn-secondary {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #94a3b8;
+  background: linear-gradient(180deg, #161618 0%, #0f0f11 100%);
+  border-color: var(--holo-border);
+  color: var(--holo-text-secondary);
 }
 
 .holo-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #f8fafc;
+  background: linear-gradient(180deg, #202024 0%, #141416 100%);
+  border-color: var(--holo-border-strong);
+  color: var(--holo-text-primary);
 }
 
 .holo-btn-active {
-  background: linear-gradient(135deg, rgba(0, 240, 255, 0.3), rgba(139, 92, 246, 0.3)) !important;
+  background: linear-gradient(180deg, #1e3a50 0%, #0d2232 100%) !important;
   border-color: var(--holo-cyan) !important;
   color: #ffffff !important;
-  box-shadow: 0 0 18px var(--holo-cyan-glow);
+  box-shadow: 0 0 12px var(--holo-cyan-glow);
 }
 
 .holo-btn-icon {
   background: transparent;
-  border: none;
-  color: #94a3b8;
-  font-size: 15px;
+  border: 1px solid transparent;
+  color: var(--holo-text-muted);
   cursor: pointer;
-  padding: 6px;
-  border-radius: 50%;
+  padding: 4px;
+  border-radius: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -146,8 +185,9 @@
 }
 
 .holo-btn-icon:hover {
-  background: rgba(0, 240, 255, 0.15);
-  color: var(--holo-cyan);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--holo-border);
+  color: var(--holo-text-primary);
 }
 
 /* ====================================================================
@@ -155,39 +195,39 @@
    ==================================================================== */
 .holo-hud {
   position: absolute;
-  top: 18px;
+  top: 14px;
   width: 250px;
-  background: var(--holo-bg-glass);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: linear-gradient(180deg, #161619 0%, #0a0a0c 100%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--holo-border);
-  border-radius: 12px;
-  padding: 14px 16px;
+  border-radius: 2px;
+  padding: 12px 14px;
   font-family: var(--holo-font-sans);
-  color: #cbd5e1;
+  color: var(--holo-text-secondary);
   z-index: 90;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   pointer-events: auto;
 }
 
 .holo-hud-left {
-  left: 18px;
+  left: 14px;
 }
 
 .holo-hud-right {
-  right: 18px;
+  right: 14px;
 }
 
 .holo-hud-title {
   font-family: var(--holo-font-sans);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  color: var(--holo-cyan);
-  letter-spacing: 0.8px;
+  color: var(--holo-text-primary);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   padding-bottom: 6px;
-  border-bottom: 1px solid rgba(0, 240, 255, 0.15);
+  border-bottom: 1px solid var(--holo-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -197,120 +237,113 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 7px;
-  font-size: 11px;
+  margin-bottom: 6px;
+  font-size: 10.5px;
 }
 
 .holo-hud-row span {
-  color: #94a3b8;
+  color: var(--holo-text-muted);
   font-weight: 500;
+  letter-spacing: 0.04em;
 }
 
 .holo-hud-row strong {
   font-family: var(--holo-font-mono);
-  font-size: 11.5px;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
 }
 
-.holo-val-green {
-  color: var(--holo-green);
-}
-
-.holo-val-cyan {
-  color: var(--holo-cyan);
-}
-
-.holo-val-gold {
-  color: var(--holo-gold);
-}
-
-.holo-val-red {
-  color: var(--holo-red);
-}
+.holo-val-green { color: var(--holo-green); }
+.holo-val-cyan { color: var(--holo-cyan); }
+.holo-val-gold { color: var(--holo-gold); }
+.holo-val-red { color: var(--holo-red); }
 
 .holo-badge {
   font-family: var(--holo-font-mono);
-  font-size: 10px;
-  padding: 3px 8px;
-  border-radius: 12px;
+  font-size: 9.5px;
+  padding: 2px 6px;
+  border-radius: 2px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .holo-badge-idle {
-  background: rgba(148, 163, 184, 0.15);
-  color: #94a3b8;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--holo-text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .holo-badge-listening {
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.4);
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--holo-green);
+  border: 1px solid rgba(52, 211, 153, 0.35);
 }
 
 .holo-badge-speculative {
-  background: rgba(245, 158, 11, 0.2);
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--holo-gold);
+  border: 1px solid rgba(251, 191, 36, 0.35);
 }
 
 .holo-badge-speaking {
-  background: rgba(0, 240, 255, 0.2);
+  background: rgba(56, 189, 248, 0.15);
   color: var(--holo-cyan);
-  border: 1px solid rgba(0, 240, 255, 0.4);
+  border: 1px solid rgba(56, 189, 248, 0.35);
 }
 
 .holo-badge-interrupted {
-  background: rgba(255, 0, 85, 0.2);
-  color: #ff3377;
-  border: 1px solid rgba(255, 0, 85, 0.4);
+  background: rgba(244, 63, 94, 0.15);
+  color: var(--holo-red);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+}
+
+.holo-badge-connected {
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--holo-green);
+  border: 1px solid rgba(52, 211, 153, 0.35);
 }
 
 .holo-meter {
-  width: 90px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
+  width: 80px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 1px;
   overflow: hidden;
 }
 
 .holo-meter-fill {
   width: 0%;
   height: 100%;
-  background: linear-gradient(90deg, #00f0ff, #10b981);
-  border-radius: 6px;
+  background: linear-gradient(90deg, var(--holo-cyan), var(--holo-green));
+  border-radius: 1px;
   transition: width 0.08s ease-out;
 }
 
 /* ====================================================================
-   SLIDE-IN CONFIGURATION DRAWERS & MODALS
+   SLIDE-IN CONFIGURATION DRAWERS & MODALS (CLEAN INDUSTRIAL RECTANGLES)
    ==================================================================== */
 .holo-drawer {
   position: absolute;
   top: 14px;
   bottom: 14px;
-  width: 420px;
-  background: linear-gradient(160deg, rgba(3, 14, 28, 0.96), rgba(6, 22, 42, 0.92));
+  width: 440px;
+  background: linear-gradient(180deg, #151518 0%, #09090b 100%);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   border: 1px solid var(--holo-border);
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(0, 240, 255, 0.12);
+  border-radius: 2px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   z-index: 200;
   display: flex;
   flex-direction: column;
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
   font-family: var(--holo-font-sans);
-  color: #e2e8f0;
+  color: var(--holo-text-primary);
 }
 
-#rig-studio-drawer {
-  right: 14px;
-}
-
-#stage-calib-panel {
-  left: 14px;
-}
+#rig-studio-drawer { right: 14px; }
+#stage-calib-panel { left: 14px; }
 
 .rig-studio-closed {
   transform: translateX(110%);
@@ -340,52 +373,64 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--holo-border);
-  background: rgba(0, 240, 255, 0.04);
+  background: linear-gradient(180deg, #1b1b20 0%, #121215 100%);
 }
 
 .holo-drawer-header h3 {
   font-family: var(--holo-font-sans);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
-  color: var(--holo-cyan);
-  letter-spacing: 0.8px;
+  color: var(--holo-text-primary);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Tabs inside Drawers */
 .holo-tabs {
   display: flex;
-  background: rgba(0, 0, 0, 0.25);
+  background: #08080a;
   border-bottom: 1px solid var(--holo-border);
-  padding: 4px 10px;
-  gap: 6px;
+  padding: 0;
 }
 
 .holo-tab {
-  font-size: 11px;
+  flex: 1;
+  font-size: 10px;
   font-weight: 600;
-  color: #94a3b8;
-  padding: 6px 12px;
-  border-radius: 6px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--holo-text-muted);
+  padding: 8px 10px;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
   cursor: pointer;
   transition: all 0.15s;
   user-select: none;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .holo-tab:hover {
-  color: #ffffff;
+  color: var(--holo-text-primary);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .holo-tab.active {
-  background: rgba(0, 240, 255, 0.15);
-  color: var(--holo-cyan);
-  box-shadow: 0 0 10px var(--holo-cyan-glow);
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  border-bottom-color: var(--holo-cyan);
 }
 
 .holo-drawer-body {
-  padding: 18px 20px;
+  padding: 16px;
   overflow-y: auto;
   flex: 1;
 }
@@ -393,172 +438,107 @@
 /* Custom Scrollbars */
 .holo-drawer-body::-webkit-scrollbar,
 .holo-joint-list::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .holo-drawer-body::-webkit-scrollbar-track,
 .holo-joint-list::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 3px;
+  background: #09090b;
 }
 
 .holo-drawer-body::-webkit-scrollbar-thumb,
 .holo-joint-list::-webkit-scrollbar-thumb {
-  background: rgba(0, 240, 255, 0.25);
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 1px;
 }
 
-.holo-drawer-body::-webkit-scrollbar-thumb:hover,
-.holo-joint-list::-webkit-scrollbar-thumb:hover {
-  background: var(--holo-cyan);
-}
-
-/* Sections & Cards */
+/* Sections */
 .holo-section {
-  margin-bottom: 20px;
-  background: var(--holo-bg-card);
-  border: 1px solid rgba(0, 240, 255, 0.12);
-  border-radius: 10px;
-  padding: 14px;
+  background: linear-gradient(180deg, #141416 0%, #0d0d0f 100%);
+  border: 1px solid var(--holo-border);
+  border-radius: 2px;
+  padding: 12px;
+  margin-bottom: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .holo-section-title {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--holo-text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 10.5px;
-  color: #7dd3fc;
-  letter-spacing: 0.8px;
-  font-weight: 700;
-  text-transform: uppercase;
-  margin-bottom: 12px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* High-Tech Drag & Drop Area */
+/* Dropzone */
 .holo-dropzone {
-  border: 1.5px dashed var(--holo-border);
-  border-radius: 10px;
-  padding: 22px 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border-radius: 2px;
+  background: #08080a;
+  padding: 24px 16px;
   text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  background: rgba(0, 240, 255, 0.03);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
 }
 
-.holo-dropzone:hover,
-.holo-dropzone.hover {
-  background: rgba(0, 240, 255, 0.12);
+.holo-dropzone:hover {
   border-color: var(--holo-cyan);
-  box-shadow: 0 0 20px var(--holo-cyan-glow);
+  background: rgba(56, 189, 248, 0.03);
 }
 
-.holo-dropzone-icon {
-  font-size: 28px;
-  color: var(--holo-cyan);
+/* Form Controls */
+.holo-field {
+  margin-bottom: 10px;
 }
 
-.holo-dropzone span {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #e2e8f0;
-}
-
-.holo-dropzone small {
-  font-size: 10px;
-  color: #64748b;
-  font-family: var(--holo-font-mono);
-}
-
-/* Model Card Stats Badge */
-.holo-stat-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.holo-stat-card {
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(0, 240, 255, 0.1);
-  border-radius: 6px;
-  padding: 8px 10px;
-}
-
-.holo-stat-card span {
+.holo-field label {
   display: block;
   font-size: 9.5px;
-  color: #94a3b8;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: var(--holo-text-muted);
+  margin-bottom: 4px;
 }
 
-.holo-stat-card strong {
-  font-family: var(--holo-font-mono);
-  font-size: 12px;
-  color: var(--holo-cyan);
-}
-
-/* Joint Mapping List */
-.holo-joint-list {
-  max-height: 240px;
-  overflow-y: auto;
-  border: 1px solid rgba(0, 240, 255, 0.12);
-  border-radius: 8px;
-  padding: 6px;
-  background: rgba(0, 0, 0, 0.4);
-}
-
-.holo-joint-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 5px 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.holo-joint-row:hover {
-  background: rgba(0, 240, 255, 0.06);
-}
-
-.holo-joint-name {
-  font-family: var(--holo-font-mono);
-  font-size: 10.5px;
-  color: #cbd5e1;
-}
-
+.holo-input,
 .holo-select {
-  background: #020b18;
-  border: 1px solid rgba(0, 240, 255, 0.25);
-  color: #e2e8f0;
-  font-family: var(--holo-font-mono);
-  font-size: 10.5px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  max-width: 190px;
+  width: 100%;
+  background: #08080a;
+  border: 1px solid var(--holo-border);
+  border-radius: 2px;
+  color: var(--holo-text-primary);
+  font-family: var(--holo-font-sans);
+  font-size: 11px;
+  padding: 6px 10px;
   outline: none;
   transition: border-color 0.15s;
 }
 
+.holo-input:focus,
 .holo-select:focus {
   border-color: var(--holo-cyan);
-  box-shadow: 0 0 10px var(--holo-cyan-glow);
 }
 
 /* Sliders */
 .holo-slider-group {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .holo-slider-group label {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
-  color: #cbd5e1;
+  font-size: 10px;
+  color: var(--holo-text-secondary);
   font-weight: 500;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
+  letter-spacing: 0.04em;
 }
 
 .holo-slider-group label span {
@@ -569,9 +549,9 @@
 
 .holo-slider {
   width: 100%;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.15);
+  height: 3px;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.12);
   accent-color: var(--holo-cyan);
   cursor: pointer;
   outline: none;
@@ -582,8 +562,8 @@
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
-  font-size: 11px;
-  color: #cbd5e1;
+  font-size: 10.5px;
+  color: var(--holo-text-secondary);
 }
 
 .holo-toggle-row label {
@@ -596,20 +576,20 @@
 
 .holo-toggle-row input[type="checkbox"] {
   accent-color: var(--holo-cyan);
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   cursor: pointer;
 }
 
 .holo-btn-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 6px;
 }
 
 .holo-action-row {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 /* ====================================================================
@@ -623,26 +603,26 @@ body.holo-projection-mode .holo-drawer {
   transition: opacity 0.3s ease-out;
 }
 
-/* Mirror Flip when projected into 45° glass */
 body.holo-mirror-horizontal #hologram-viewport canvas {
   transform: scaleX(-1);
 }
 
-/* Discreet floating exit button revealed on hover in projection mode */
 #btn-exit-projection {
   display: none;
   position: fixed;
   top: 14px;
   right: 14px;
   z-index: 999;
-  background: rgba(3, 14, 28, 0.7);
-  border: 1px solid rgba(0, 240, 255, 0.4);
-  color: #00f0ff;
-  border-radius: 20px;
+  background: rgba(10, 10, 12, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border-radius: 2px;
   padding: 6px 14px;
   font-family: var(--holo-font-sans);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
   backdrop-filter: blur(8px);
   opacity: 0.15;
@@ -655,27 +635,27 @@ body.holo-projection-mode #btn-exit-projection {
 
 #btn-exit-projection:hover {
   opacity: 1.0;
-  background: rgba(0, 240, 255, 0.25);
-  box-shadow: 0 0 15px var(--holo-cyan-glow);
+  background: #18181b;
+  border-color: var(--holo-cyan);
 }
 
-/* Projection Toast Notification */
 #holo-projection-toast {
   display: none;
   position: fixed;
-  bottom: 24px;
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(2, 10, 24, 0.9);
-  border: 1px solid var(--holo-cyan);
-  color: #e2e8f0;
-  padding: 10px 20px;
-  border-radius: 24px;
+  background: #09090b;
+  border: 1px solid var(--holo-border-strong);
+  color: var(--holo-text-primary);
+  padding: 8px 16px;
+  border-radius: 2px;
   font-family: var(--holo-font-sans);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   z-index: 1000;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 20px var(--holo-cyan-glow);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.85);
   pointer-events: none;
 }
-
