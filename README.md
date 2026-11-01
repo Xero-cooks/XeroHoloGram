@@ -80,7 +80,11 @@
 - **Mode 2 (Phoneme Timestamps)**: Hermite spline interpolation over TTS word timestamps.
 - **Hybrid Crossfade & Jaw Fallback**: Automatic crossfade between modes with physical jaw pitch rotation fallback if the avatar model lacks facial blendshapes.
 
-### 2.5 Ultrafast Async Daemon & Sub-50ms Barge-In
+### 2.5 Cybernetic Floating Augmentations & Sub-Agent Spawner
+- **Left-Wrist Holographic Terminal**: Real-time stdout text quad attached to character's `hand_L` joint displaying live agent logs, code execution stdout, and WebSocket telemetry with glowing borders and additive blending.
+- **Sub-Agent Holographic Spawner**: Mini 3D holographic wireframe clone or geometric orb that materializes beside the main hologram when background tools or sub-agents are invoked, pulsating with orbital particle rings and dissolving upon completion.
+
+### 2.6 Ultrafast Async Daemon & Sub-50ms Barge-In
 - **FastAPI + uvloop**: Full-duplex WebSocket at `/ws/hologram` multiplexing binary PCM audio frames (with 16-byte headers) and JSON control packets.
 - **Instant Barge-In**: Client-side VAD interrupts avatar speech in $< 20\text{ms}$, purges audio jitter buffers, zeroes spring velocities, and cancels server-side generation tasks.
 - **Universal TTS Adapters**: Support for **Edge-TTS**, **Kokoro-82M**, **ElevenLabs**, **Cartesia Sonic**, **OpenAI TTS-1**, and local **Piper**.
@@ -93,24 +97,30 @@
 - [Bun](https://bun.sh) (v1.1+) or Node.js (v20+)
 - Python 3.10+
 
-### Installation & Run
+### One-Command Startup
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/Xero-cooks/XeroHoloGram.git
-cd XeroHoloGram
+# Windows
+start_holo.bat
 
-# 2. Install frontend dependencies
-bun install --cwd frontend
-
-# 3. Install backend dependencies
-pip install -r backend/requirements.txt
-
-# 4. Start full stack (Windows PowerShell)
-.\scripts\dev.ps1
-
-# Or start full stack (Linux/macOS)
-./scripts/start.sh
+# Linux / macOS
+chmod +x start_holo.sh
+./start_holo.sh
 ```
 
-Open your browser at `http://localhost:5173` to view the 3D Holographic Stage.
+### Manual Installation & Testing
+
+```bash
+# 1. Install frontend dependencies and run unit tests
+bun install --cwd frontend
+bun test frontend/tests
+
+# 2. Build production frontend bundle
+cd frontend && bun run build && cd ..
+
+# 3. Install backend dependencies and run pytest suite
+pip install -r backend/requirements.txt
+pytest backend/tests
+```
+
+Open your browser at `http://localhost:5173` to interact with the 3D Holographic Stage.
