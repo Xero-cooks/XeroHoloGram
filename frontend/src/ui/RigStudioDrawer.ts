@@ -1,6 +1,7 @@
 import { Joint28 } from '../rig/CanonicalSkeleton';
 import { RigProfile } from '../rig/RigCalibrator';
 import { LoadedRiggedModel, UniversalModelLoader } from '../rig/UniversalModelLoader';
+import { ICONS } from './HoloIcons';
 
 export interface RigStudioDrawerCallbacks {
   onBoneSelect?: (boneName: string) => void;
@@ -53,15 +54,15 @@ export class RigStudioDrawer {
     el.className = 'holo-drawer rig-studio-closed';
     el.innerHTML = `
       <div class="holo-drawer-header">
-        <h3>◈ 3D AVATAR & RIG CONFIGURATION</h3>
-        <button id="btn-close-rig-studio" class="holo-btn-icon">✕</button>
+        <h3>${ICONS.box} 3D AVATAR & RIG CONFIGURATION</h3>
+        <button id="btn-close-rig-studio" class="holo-btn-icon" title="Close">${ICONS.close}</button>
       </div>
 
       <!-- Tab Navigation -->
       <div class="holo-tabs">
-        <div class="holo-tab active" data-tab="model">📦 3D MODEL</div>
-        <div class="holo-tab" data-tab="bones">🦴 BONE STUDIO</div>
-        <div class="holo-tab" data-tab="fx">✨ SHADERS & FX</div>
+        <div class="holo-tab active" data-tab="model">${ICONS.box} 3D MODEL</div>
+        <div class="holo-tab" data-tab="bones">${ICONS.bones} BONE STUDIO</div>
+        <div class="holo-tab" data-tab="fx">${ICONS.palette} SHADERS & FX</div>
       </div>
 
       <div class="holo-drawer-body">
@@ -74,37 +75,37 @@ export class RigStudioDrawer {
             </div>
             
             <div id="rig-dropzone" class="holo-dropzone">
-              <div class="holo-dropzone-icon">📁</div>
+              <div class="holo-dropzone-icon" style="margin-bottom:6px;">${ICONS.box}</div>
               <span>DRAG & DROP 3D MODEL HERE</span>
-              <small>.GLB  •  .GLTF  •  .VRM  •  .OBJ</small>
+              <small style="display:block; margin-top:4px; color:#71717a;">.GLB  •  .GLTF  •  .VRM  •  .OBJ</small>
               <input type="file" id="rig-file-input" accept=".glb,.gltf,.vrm,.obj" style="display:none" />
-              <button id="btn-browse-rig" class="holo-btn holo-btn-cyan" style="margin-top:4px;">
-                📂 CHOOSE LOCAL FILE
+              <button id="btn-browse-rig" class="holo-btn holo-btn-cyan" style="margin-top:8px;">
+                ${ICONS.box} CHOOSE LOCAL FILE
               </button>
             </div>
 
             <!-- Active Model Card -->
-            <div class="holo-stat-card" style="margin-top: 12px;">
+            <div class="holo-stat-card" style="margin-top: 12px; background:#08080a; border:1px solid var(--holo-border); padding:10px; border-radius:2px;">
               <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span id="lbl-active-model-title" style="font-weight:700; color:#fff;">ACTIVE MODEL</span>
+                <span id="lbl-active-model-title" style="font-weight:700; font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:#fff;">ACTIVE MODEL</span>
                 <span id="badge-model-status" class="holo-badge holo-badge-listening">BUILT-IN RIG</span>
               </div>
-              <strong id="lbl-active-model-name" style="display:block; margin: 4px 0 8px 0; font-size:12px;">XeroKratos Cybernetic Orchestrator</strong>
+              <strong id="lbl-active-model-name" style="display:block; margin: 4px 0 8px 0; font-size:11px; font-family:var(--holo-font-mono);">XeroKratos Cybernetic Orchestrator</strong>
               
-              <div class="holo-stat-grid">
-                <div class="holo-stat-card">
-                  <span>TRIANGLES</span>
-                  <strong id="stat-triangles">1,840</strong>
+              <div class="holo-stat-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                <div class="holo-stat-card" style="background:#0d0d0f; padding:6px; border:1px solid rgba(255,255,255,0.06); border-radius:2px;">
+                  <span style="font-size:9px; color:#71717a; font-weight:700; text-transform:uppercase; display:block;">TRIANGLES</span>
+                  <strong id="stat-triangles" style="font-family:var(--holo-font-mono); font-size:11px;">1,840</strong>
                 </div>
-                <div class="holo-stat-card">
-                  <span>CANONICAL BONES</span>
-                  <strong id="stat-bones">28 / 28</strong>
+                <div class="holo-stat-card" style="background:#0d0d0f; padding:6px; border:1px solid rgba(255,255,255,0.06); border-radius:2px;">
+                  <span style="font-size:9px; color:#71717a; font-weight:700; text-transform:uppercase; display:block;">CANONICAL BONES</span>
+                  <strong id="stat-bones" style="font-family:var(--holo-font-mono); font-size:11px;">28 / 28</strong>
                 </div>
               </div>
 
-              <div style="margin-top:10px; display:flex; gap:6px;">
+              <div style="margin-top:8px; display:flex; gap:6px;">
                 <button id="btn-reset-default-rig" class="holo-btn holo-btn-secondary" style="width:100%; justify-content:center;">
-                  ↺ RESTORE DEFAULT XEROKRATOS
+                  ${ICONS.refresh} RESTORE DEFAULT XEROKRATOS
                 </button>
               </div>
             </div>
@@ -168,13 +169,13 @@ export class RigStudioDrawer {
               <input type="range" id="slider-bone-z" min="-180" max="180" value="0" class="holo-slider" />
             </div>
             <button id="btn-reset-bone-angles" class="holo-btn holo-btn-secondary" style="width:100%; justify-content:center;">
-              ↺ RESET TEST ANGLES
+              ${ICONS.refresh} RESET TEST ANGLES
             </button>
           </div>
 
           <div class="holo-section holo-action-row">
-            <button id="btn-export-rig-config" class="holo-btn holo-btn-cyan" style="flex:1;">EXPORT JSON</button>
-            <button id="btn-import-rig-config" class="holo-btn holo-btn-secondary" style="flex:1;">IMPORT JSON</button>
+            <button id="btn-export-rig-config" class="holo-btn holo-btn-cyan" style="flex:1;">${ICONS.save} EXPORT JSON</button>
+            <button id="btn-import-rig-config" class="holo-btn holo-btn-secondary" style="flex:1;">${ICONS.box} IMPORT JSON</button>
             <input type="file" id="config-file-input" accept=".json" style="display:none" />
           </div>
         </div>

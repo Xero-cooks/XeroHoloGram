@@ -1,3 +1,5 @@
+import { ICONS } from './HoloIcons';
+
 export interface StageCalibSettings {
   baseWidthMm: number;
   baseHeightMm: number;
@@ -73,22 +75,22 @@ export class StageCalibPanel {
     el.className = 'holo-drawer stage-calib-closed';
     el.innerHTML = `
       <div class="holo-drawer-header">
-        <h3>◈ PEPPER'S GHOST STAGE CALIBRATOR</h3>
-        <button id="btn-close-calib" class="holo-btn-icon">✕</button>
+        <h3>${ICONS.sliders} PEPPER'S GHOST STAGE CALIBRATOR</h3>
+        <button id="btn-close-calib" class="holo-btn-icon" title="Close">${ICONS.close}</button>
       </div>
 
       <div class="holo-drawer-body">
         <!-- Fullscreen Projection Action -->
-        <div class="holo-section" style="background: linear-gradient(135deg, rgba(0, 240, 255, 0.12), rgba(139, 92, 246, 0.12));">
+        <div class="holo-section">
           <div class="holo-section-title">
             <span>OPTICAL FULLSCREEN PROJECTION</span>
             <span class="holo-badge holo-badge-listening">ZERO UI BLEED</span>
           </div>
-          <p style="font-size:10.5px; color:#94a3b8; margin-bottom:10px; line-height:1.4;">
+          <p style="font-size:10px; color:#71717a; margin-bottom:8px; line-height:1.4;">
             Removes all browser bars, HUDs and buttons. Leaves only the 3D hologram on pure black for reflection.
           </p>
-          <button id="btn-calib-fullscreen" class="holo-btn holo-btn-cyan" style="width:100%; justify-content:center; padding:10px; font-size:12px;">
-            ⛶ ENTER FULLSCREEN PROJECTION MODE
+          <button id="btn-calib-fullscreen" class="holo-btn holo-btn-cyan" style="width:100%; justify-content:center; padding:8px 12px;">
+            ${ICONS.maximize} ENTER FULLSCREEN PROJECTION MODE
           </button>
         </div>
 

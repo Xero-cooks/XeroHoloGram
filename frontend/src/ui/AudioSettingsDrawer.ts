@@ -1,3 +1,5 @@
+import { ICONS } from './HoloIcons';
+
 export interface AudioSettingsData {
   deviceId: string;
   energyThreshold: number;
@@ -47,8 +49,8 @@ export class AudioSettingsDrawer {
     el.style.zIndex = '210';
     el.innerHTML = `
       <div class="holo-drawer-header">
-        <h3>🎤 MICROPHONE & AUDIO SENSOR</h3>
-        <button id="btn-close-audio-settings" class="holo-btn-icon">✕</button>
+        <h3>${ICONS.mic} MICROPHONE & AUDIO SENSOR</h3>
+        <button id="btn-close-audio-settings" class="holo-btn-icon" title="Close">${ICONS.close}</button>
       </div>
 
       <div class="holo-drawer-body">
@@ -59,8 +61,8 @@ export class AudioSettingsDrawer {
             <span id="badge-mic-perm" class="holo-badge holo-badge-idle">STANDBY</span>
           </div>
 
-          <button id="btn-request-mic-perm" class="holo-btn holo-btn-cyan" style="width:100%; justify-content:center; padding:10px; font-size:12px;">
-            🎙 GRANT MIC PERMISSION & SCAN DEVICES
+          <button id="btn-request-mic-perm" class="holo-btn holo-btn-cyan" style="width:100%; justify-content:center; padding:8px 12px;">
+            ${ICONS.mic} GRANT MIC PERMISSION & SCAN DEVICES
           </button>
 
           <!-- Live Input Meter -->

@@ -19,6 +19,7 @@ import { TelemetryHUD } from './ui/TelemetryHUD';
 import { AICoreModal, LLMConfig, TTSConfig } from './ui/AICoreModal';
 import { AudioSettingsDrawer, AudioSettingsData } from './ui/AudioSettingsDrawer';
 import { LoadedRiggedModel } from './rig/UniversalModelLoader';
+import { ICONS } from './ui/HoloIcons';
 
 /**
  * XeroHoloGram Main Application Bootstrapper
@@ -162,7 +163,7 @@ async function bootstrapHologramApp() {
     onRequestPermission: async () => {
       try {
         await speechSensor.start();
-        btnMic.textContent = '🎙 MIC: ACTIVE';
+        btnMic.innerHTML = `${ICONS.mic} MIC: ACTIVE`;
         btnMic.classList.add('holo-btn-active');
         floatingWidgets.log('[MIC] Microphone granted & listening.');
         return true;
@@ -406,14 +407,14 @@ async function bootstrapHologramApp() {
       <span class="holo-status-dot"></span>
       XEROHOLOGRAM
     </div>
-    <button id="btn-toggle-mic" class="holo-btn holo-btn-cyan">🎙 MIC STREAM</button>
-    <button id="btn-open-mic-settings" class="holo-btn holo-btn-secondary">⚙ MIC DSP</button>
-    <button id="btn-open-ai-core" class="holo-btn holo-btn-secondary">🧠 AI CORE</button>
-    <button id="btn-open-rig-studio" class="holo-btn holo-btn-secondary">📦 3D AVATAR & RIG</button>
-    <button id="btn-fullscreen-proj" class="holo-btn holo-btn-cyan">⛶ PROJECTION</button>
-    <button id="btn-toggle-terminal" class="holo-btn holo-btn-secondary">💻 WRIST HUD</button>
-    <button id="btn-spawn-clone" class="holo-btn holo-btn-secondary">✨ SPAWN AGENT</button>
-    <button id="btn-open-calib" class="holo-btn holo-btn-secondary">📐 STAGE CALIB</button>
+    <button id="btn-toggle-mic" class="holo-btn holo-btn-cyan">${ICONS.mic} MIC STREAM</button>
+    <button id="btn-open-mic-settings" class="holo-btn holo-btn-secondary">${ICONS.sliders} MIC DSP</button>
+    <button id="btn-open-ai-core" class="holo-btn holo-btn-secondary">${ICONS.cpu} AI CORE</button>
+    <button id="btn-open-rig-studio" class="holo-btn holo-btn-secondary">${ICONS.box} 3D AVATAR & RIG</button>
+    <button id="btn-fullscreen-proj" class="holo-btn holo-btn-cyan">${ICONS.maximize} PROJECTION</button>
+    <button id="btn-toggle-terminal" class="holo-btn holo-btn-secondary">${ICONS.terminal} WRIST HUD</button>
+    <button id="btn-spawn-clone" class="holo-btn holo-btn-secondary">${ICONS.box} SPAWN AGENT</button>
+    <button id="btn-open-calib" class="holo-btn holo-btn-secondary">${ICONS.layers} STAGE CALIB</button>
   `;
   document.body.appendChild(topBar);
 
@@ -423,12 +424,12 @@ async function bootstrapHologramApp() {
     isMicActive = !isMicActive;
     if (isMicActive) {
       await speechSensor.start();
-      btnMic.textContent = '🎙 MIC: ACTIVE';
+      btnMic.innerHTML = `${ICONS.mic} MIC: ACTIVE`;
       btnMic.classList.add('holo-btn-active');
       floatingWidgets.log('[MIC] Continuous SpeechRecognition & VAD started.');
     } else {
       speechSensor.stop();
-      btnMic.textContent = '🎙 MIC STREAM';
+      btnMic.innerHTML = `${ICONS.mic} MIC STREAM`;
       btnMic.classList.remove('holo-btn-active');
       floatingWidgets.log('[MIC] Speech capture paused.');
     }

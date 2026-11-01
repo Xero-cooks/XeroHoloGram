@@ -1,10 +1,12 @@
 import type { AgenticDecisionPacket } from '../network/HoloSocketClient';
+import { ICONS } from './HoloIcons';
 
 export interface LLMConfig {
   provider: 'openai' | 'groq' | 'openrouter' | 'gemini' | 'ollama' | 'mock';
   baseUrl: string;
   apiKey: string;
   model: string;
+  decisionModel: string;
   temperature: number;
   systemPrompt: string;
 }
@@ -34,6 +36,7 @@ export class AICoreModal {
     baseUrl: 'https://api.openai.com/v1',
     apiKey: '',
     model: 'gpt-4o-mini',
+    decisionModel: 'vllm-sr/d3-flash',
     temperature: 0.7,
     systemPrompt: "You are XeroKratos, an ultra-advanced 3D Holographic AI Agent. You communicate with concise, sharp, spoken responses with rich body language."
   };
@@ -84,67 +87,90 @@ export class AICoreModal {
     el.style.zIndex = '210';
     el.innerHTML = `
       <div class="holo-drawer-header">
-        <h3>🧠 AI CORE & VOICE (LLM & TTS)</h3>
-        <button id="btn-close-ai-core" class="holo-btn-icon">✕</button>
+        <h3>${ICONS.cpu} AI CORE & KINEMATIC DECISION HARNESS</h3>
+        <button id="btn-close-ai-core" class="holo-btn-icon" title="Close">${ICONS.close}</button>
       </div>
 
       <div class="holo-tabs">
-        <div class="holo-tab active" data-ai-tab="llm">🤖 LLM MODEL</div>
-        <div class="holo-tab" data-ai-tab="tts">🎙 TTS & VOICE</div>
-        <div class="holo-tab" data-ai-tab="test">⚡ TEST HARNESS</div>
+        <div class="holo-tab active" data-ai-tab="llm">${ICONS.cpu} MODELS</div>
+        <div class="holo-tab" data-ai-tab="tts">${ICONS.mic} SPEECH & TTS</div>
+        <div class="holo-tab" data-ai-tab="test">${ICONS.activity} TEST HARNESS</div>
       </div>
 
       <div class="holo-drawer-body">
-        <!-- ================= TAB 1: LLM CONFIGURATION ================= -->
+        <!-- ================= TAB 1: LLM & DECISION CONFIGURATION ================= -->
         <div id="ai-tab-content-llm" class="tab-pane">
+          <!-- Decision Model Section (System 1) -->
           <div class="holo-section">
             <div class="holo-section-title">
-              <span>LLM PROVIDER SELECTION</span>
-              <span class="holo-badge holo-badge-cyan" id="badge-llm-provider">OPENAI</span>
+              <span>SYSTEM 1: VLLM DECISION ENGINE (D3-FLASH)</span>
+              <span class="holo-badge holo-badge-connected">52 KEYS ACTIVE</span>
             </div>
             
-            <div class="holo-slider-group">
-              <label>Provider:</label>
-              <select id="select-llm-provider" class="holo-select" style="width:100%; max-width:none; padding:8px;">
+            <div class="holo-field">
+              <label>Decision Model Architecture:</label>
+              <select id="select-decision-model" class="holo-select">
+                <option value="vllm-sr/d3-flash" selected>vllm-sr/d3-flash (9B - Sub-100ms Forward Pass)</option>
+                <option value="vllm-sr/d3-ultra">vllm-sr/d3-ultra (27B - Deep Bounded Reasoning)</option>
+                <option value="vllm-sr/d3-mini">vllm-sr/d3-mini (4B - High Speed Lightweight)</option>
+                <option value="vllm-sr/d3-edge">vllm-sr/d3-edge (0.6B - Edge Optimized)</option>
+              </select>
+            </div>
+
+            <div style="font-size:10px; color:#71717a; line-height:1.4; margin-top:6px; font-family:var(--holo-font-mono);">
+              Single forward pass calibrated probability router for intent, SO(3) kinematics, and tool triggers. Backed by a 52-key round-robin proxy pool.
+            </div>
+          </div>
+
+          <!-- Conversational Chat Model Section (System 2) -->
+          <div class="holo-section">
+            <div class="holo-section-title">
+              <span>SYSTEM 2: OPENAI-COMPATIBLE CHAT LLM (VOICE)</span>
+              <span class="holo-badge holo-badge-idle" id="badge-llm-provider">OPENAI</span>
+            </div>
+            
+            <div class="holo-field">
+              <label>Chat Provider:</label>
+              <select id="select-llm-provider" class="holo-select">
                 <option value="openai">OpenAI (GPT-4o, GPT-4o-mini)</option>
                 <option value="groq">Groq Ultra-Fast (Llama 3.3 70B, Mixtral)</option>
                 <option value="openrouter">OpenRouter (Multi-Provider Aggregator)</option>
-                <option value="gemini">Google Gemini (OpenAI Endpoint)</option>
+                <option value="gemini">Google Gemini (OpenAI Compatible Endpoint)</option>
                 <option value="ollama">Ollama (Local Private LLM)</option>
                 <option value="mock">Offline Smart Simulator (Zero-API-Key)</option>
               </select>
             </div>
 
-            <div class="holo-slider-group" style="margin-top:10px;">
+            <div class="holo-field">
               <label>API Base URL:</label>
-              <input type="text" id="input-llm-base-url" class="holo-select" style="width:100%; max-width:none; padding:8px;" value="${this.llmConfig.baseUrl}" />
+              <input type="text" id="input-llm-base-url" class="holo-input" value="${this.llmConfig.baseUrl}" />
             </div>
 
-            <div class="holo-slider-group" style="margin-top:10px;">
-              <label>API Key: <span style="font-size:10px; color:#94a3b8;">(Stored locally in browser)</span></label>
+            <div class="holo-field">
+              <label>API Key: <span style="color:#71717a;">(Stored locally in browser)</span></label>
               <div style="display:flex; gap:6px;">
-                <input type="password" id="input-llm-api-key" class="holo-select" style="flex:1; max-width:none; padding:8px;" placeholder="sk-... / gsk_..." value="${this.llmConfig.apiKey}" />
-                <button id="btn-toggle-key-vis" class="holo-btn holo-btn-secondary" style="padding:4px 8px;">👁</button>
+                <input type="password" id="input-llm-api-key" class="holo-input" style="flex:1;" placeholder="sk-... / gsk_..." value="${this.llmConfig.apiKey}" />
+                <button id="btn-toggle-key-vis" class="holo-btn holo-btn-secondary" style="padding:4px 8px;">${ICONS.eye}</button>
               </div>
             </div>
 
-            <div class="holo-slider-group" style="margin-top:10px;">
+            <div class="holo-field">
               <label>Model Name:</label>
-              <input type="text" id="input-llm-model" class="holo-select" style="width:100%; max-width:none; padding:8px;" value="${this.llmConfig.model}" />
+              <input type="text" id="input-llm-model" class="holo-input" value="${this.llmConfig.model}" />
             </div>
 
-            <div class="holo-slider-group" style="margin-top:10px;">
+            <div class="holo-slider-group">
               <label>Temperature: <span id="lbl-val-temp">${this.llmConfig.temperature}</span></label>
               <input type="range" id="slider-llm-temp" min="0.0" max="1.5" step="0.05" value="${this.llmConfig.temperature}" class="holo-slider" />
             </div>
 
-            <div class="holo-slider-group" style="margin-top:10px;">
+            <div class="holo-field">
               <label>System Directive Prompt:</label>
-              <textarea id="textarea-system-prompt" class="holo-select" style="width:100%; max-width:none; height:80px; padding:8px; resize:vertical;">${this.llmConfig.systemPrompt}</textarea>
+              <textarea id="textarea-system-prompt" class="holo-input" style="height:70px; resize:vertical;">${this.llmConfig.systemPrompt}</textarea>
             </div>
 
-            <button id="btn-save-llm-config" class="holo-btn holo-btn-cyan" style="width:100%; justify-content:center; margin-top:10px;">
-              💾 SAVE & SYNC LLM CONFIG
+            <button id="btn-save-llm-config" class="holo-btn holo-btn-cyan" style="width:100%; justify-content:center; margin-top:6px;">
+              ${ICONS.save} SAVE & SYNC CONFIG
             </button>
           </div>
         </div>
@@ -157,9 +183,9 @@ export class AICoreModal {
               <span class="holo-badge holo-badge-listening">ZERO-COST</span>
             </div>
 
-            <div class="holo-slider-group">
+            <div class="holo-field">
               <label>Acoustic Engine:</label>
-              <select id="select-tts-engine" class="holo-select" style="width:100%; max-width:none; padding:8px;">
+              <select id="select-tts-engine" class="holo-select">
                 <option value="edge_tts">Edge-TTS (Neural High-Def - Zero Cost)</option>
                 <option value="browser_tts">Browser SpeechSynthesis (Instant Offline Fallback)</option>
                 <option value="elevenlabs">ElevenLabs (Ultra-Realistic Streaming)</option>
@@ -167,9 +193,9 @@ export class AICoreModal {
               </select>
             </div>
 
-            <div class="holo-slider-group" style="margin-top:10px;">
+            <div class="holo-field">
               <label>Voice Selection:</label>
-              <select id="select-tts-voice" class="holo-select" style="width:100%; max-width:none; padding:8px;">
+              <select id="select-tts-voice" class="holo-select">
                 <option value="en-US-ChristopherNeural">en-US-ChristopherNeural (Authoritative Male)</option>
                 <option value="en-US-JennyNeural">en-US-JennyNeural (Expressive Female)</option>
                 <option value="en-US-GuyNeural">en-US-GuyNeural (Casual Conversational)</option>
@@ -179,9 +205,9 @@ export class AICoreModal {
               </select>
             </div>
 
-            <div class="holo-slider-group" style="margin-top:10px;">
+            <div class="holo-field">
               <label>Speech Pacing / Rate:</label>
-              <select id="select-tts-rate" class="holo-select" style="width:100%; max-width:none; padding:8px;">
+              <select id="select-tts-rate" class="holo-select">
                 <option value="+0%">Normal (1.0x)</option>
                 <option value="+10%">Energetic (+10%)</option>
                 <option value="+20%">Fast Paced (+20%)</option>
@@ -189,12 +215,12 @@ export class AICoreModal {
               </select>
             </div>
 
-            <div style="display:flex; gap:8px; margin-top:14px;">
+            <div style="display:flex; gap:6px; margin-top:12px;">
               <button id="btn-test-voice-sample" class="holo-btn holo-btn-secondary" style="flex:1; justify-content:center;">
-                ▶ PREVIEW VOICE SAMPLE
+                ${ICONS.play} PREVIEW SAMPLE
               </button>
               <button id="btn-save-tts-config" class="holo-btn holo-btn-cyan" style="flex:1; justify-content:center;">
-                💾 APPLY VOICE
+                ${ICONS.save} APPLY VOICE
               </button>
             </div>
           </div>
@@ -208,61 +234,63 @@ export class AICoreModal {
               <span class="holo-badge holo-badge-speaking">STREAMING</span>
             </div>
 
-            <div style="display:flex; gap:8px;">
-              <input type="text" id="input-test-prompt" class="holo-select" style="flex:1; max-width:none; padding:10px;" placeholder="Ask the hologram anything..." />
-              <button id="btn-send-test-prompt" class="holo-btn holo-btn-cyan" style="padding:8px 16px;">
-                ⚡ SEND
+            <div style="display:flex; gap:6px;">
+              <input type="text" id="input-test-prompt" class="holo-input" style="flex:1;" placeholder="Ask the hologram anything..." />
+              <button id="btn-send-test-prompt" class="holo-btn holo-btn-cyan" style="padding:6px 14px;">
+                ${ICONS.send} SEND
               </button>
             </div>
 
             <div style="margin-top:10px;">
-              <span style="font-size:10px; color:#94a3b8; font-weight:600;">QUICK TEST PRESETS:</span>
-              <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;">
-                <button class="holo-btn holo-btn-secondary btn-quick-prompt" data-prompt="Explain your system architecture and Pepper's Ghost optics.">📐 Explain Optics</button>
-                <button class="holo-btn holo-btn-secondary btn-quick-prompt" data-prompt="Summon your holographic wrist terminal and show stdout logs.">💻 Summon Terminal</button>
-                <button class="holo-btn holo-btn-secondary btn-quick-prompt" data-prompt="Spawn a sub-agent worker node to compute data.">✨ Spawn Worker</button>
-                <button class="holo-btn holo-btn-secondary btn-quick-prompt" data-prompt="Run self-diagnostic quantum heal routine.">❤️ Self Heal</button>
+              <span style="font-size:9.5px; color:#71717a; font-weight:700; letter-spacing:0.06em; text-transform:uppercase;">QUICK TEST PRESETS:</span>
+              <div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:6px;">
+                <button class="holo-btn holo-btn-secondary btn-quick-prompt" data-prompt="Explain your system architecture and Pepper's Ghost optics.">${ICONS.layers} OPTICS</button>
+                <button class="holo-btn holo-btn-secondary btn-quick-prompt" data-prompt="Summon your holographic wrist terminal and show stdout logs.">${ICONS.terminal} TERMINAL</button>
+                <button class="holo-btn holo-btn-secondary btn-quick-prompt" data-prompt="Spawn a sub-agent worker node to compute data.">${ICONS.box} WORKER</button>
+                <button class="holo-btn holo-btn-secondary btn-quick-prompt" data-prompt="Run self-diagnostic quantum heal routine.">${ICONS.activity} HEAL</button>
               </div>
             </div>
 
             <!-- Decision LLM Policy Inspector Card -->
-            <div id="decision-policy-card" style="margin-top:12px; background:rgba(0,18,32,0.85); border:1px solid rgba(0,240,255,0.25); border-radius:8px; padding:10px; font-family:var(--holo-font-sans); transition:border-color 0.3s;">
+            <div id="decision-policy-card" style="margin-top:12px; background:linear-gradient(180deg, #18181c 0%, #0d0d10 100%); border:1px solid rgba(255,255,255,0.12); border-radius:2px; padding:10px; font-family:var(--holo-font-sans); transition:border-color 0.25s;">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <span style="font-size:11px; font-weight:700; color:#38bdf8; letter-spacing:0.5px;">🎯 DECISION LLM POLICY INSPECTOR</span>
-                <span id="decision-confidence-badge" class="holo-badge holo-badge-speaking" style="font-size:9.5px;">STANDBY</span>
+                <span style="font-size:10px; font-weight:700; color:#38bdf8; letter-spacing:0.08em; text-transform:uppercase; display:flex; align-items:center; gap:6px;">
+                  ${ICONS.target} DECISION POLICY ENGINE (VLLM-SR/D3-FLASH)
+                </span>
+                <span id="decision-confidence-badge" class="holo-badge holo-badge-speaking" style="font-size:9px;">STANDBY</span>
               </div>
               
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px; font-size:10px;">
-                <div style="background:rgba(0,0,0,0.4); padding:6px; border-radius:4px; border:1px solid rgba(255,255,255,0.06);">
-                  <span style="color:#64748b; font-weight:600; display:block;">RESOLVED INTENT</span>
-                  <span id="decision-intent-val" style="color:#00f0ff; font-weight:700; font-family:var(--holo-font-mono);">NONE</span>
+                <div style="background:#08080a; padding:6px; border-radius:2px; border:1px solid rgba(255,255,255,0.06);">
+                  <span style="color:#71717a; font-weight:700; font-size:9px; letter-spacing:0.06em; text-transform:uppercase; display:block;">RESOLVED INTENT</span>
+                  <span id="decision-intent-val" style="color:#38bdf8; font-weight:700; font-family:var(--holo-font-mono);">NONE</span>
                 </div>
-                <div style="background:rgba(0,0,0,0.4); padding:6px; border-radius:4px; border:1px solid rgba(255,255,255,0.06);">
-                  <span style="color:#64748b; font-weight:600; display:block;">TOOL ACTUATOR</span>
-                  <span id="decision-tool-val" style="color:#a855f7; font-weight:700; font-family:var(--holo-font-mono);">NONE</span>
+                <div style="background:#08080a; padding:6px; border-radius:2px; border:1px solid rgba(255,255,255,0.06);">
+                  <span style="color:#71717a; font-weight:700; font-size:9px; letter-spacing:0.06em; text-transform:uppercase; display:block;">TOOL ACTUATOR</span>
+                  <span id="decision-tool-val" style="color:#c084fc; font-weight:700; font-family:var(--holo-font-mono);">NONE</span>
                 </div>
-                <div style="background:rgba(0,0,0,0.4); padding:6px; border-radius:4px; border:1px solid rgba(255,255,255,0.06);">
-                  <span style="color:#64748b; font-weight:600; display:block;">EMOTION & SHADER</span>
-                  <span id="decision-emotion-val" style="color:#38bdf8; font-weight:600;">neutral_attentive</span>
+                <div style="background:#08080a; padding:6px; border-radius:2px; border:1px solid rgba(255,255,255,0.06);">
+                  <span style="color:#71717a; font-weight:700; font-size:9px; letter-spacing:0.06em; text-transform:uppercase; display:block;">EMOTION & SHADER</span>
+                  <span id="decision-emotion-val" style="color:#f4f4f5; font-weight:600;">neutral_attentive</span>
                 </div>
-                <div style="background:rgba(0,0,0,0.4); padding:6px; border-radius:4px; border:1px solid rgba(255,255,255,0.06);">
-                  <span style="color:#64748b; font-weight:600; display:block;">SO(3) KINEMATIC PLAN</span>
+                <div style="background:#08080a; padding:6px; border-radius:4px; border:1px solid rgba(255,255,255,0.06);">
+                  <span style="color:#71717a; font-weight:700; font-size:9px; letter-spacing:0.06em; text-transform:uppercase; display:block;">SO(3) KINEMATIC PLAN</span>
                   <span id="decision-plan-val" style="color:#34d399; font-weight:600;">0 Keyframes</span>
                 </div>
               </div>
 
               <!-- Thought Trace Scratchpad -->
-              <div style="background:rgba(0,0,0,0.5); border:1px dashed rgba(0,240,255,0.2); border-radius:6px; padding:6px 8px; margin-bottom:8px;">
-                <span style="font-size:9px; color:#64748b; font-weight:700; display:block; margin-bottom:2px;">💭 CHAIN-OF-THOUGHT SCRATCHPAD</span>
-                <div id="decision-thought-val" style="font-size:9.5px; color:#cbd5e1; font-family:var(--holo-font-mono); font-style:italic; line-height:1.35; max-height:48px; overflow-y:auto;">
+              <div style="background:#08080a; border:1px dashed rgba(255,255,255,0.12); border-radius:2px; padding:6px 8px; margin-bottom:8px;">
+                <span style="font-size:8.5px; color:#71717a; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; display:block; margin-bottom:2px;">CHAIN-OF-THOUGHT SCRATCHPAD</span>
+                <div id="decision-thought-val" style="font-size:9.5px; color:#a1a1aa; font-family:var(--holo-font-mono); line-height:1.35; max-height:48px; overflow-y:auto;">
                   Waiting for user interaction...
                 </div>
               </div>
 
               <!-- Spoken Speech Payload -->
-              <div style="background:rgba(0,240,255,0.05); border:1px solid rgba(0,240,255,0.2); border-radius:6px; padding:6px 8px;">
-                <span style="font-size:9px; color:#00f0ff; font-weight:700; display:block; margin-bottom:2px;">🎙 STREAMED VERBAL PAYLOAD</span>
-                <div id="decision-speech-val" style="font-size:10px; color:#f8fafc; font-weight:500; line-height:1.35;">
+              <div style="background:#08080a; border:1px solid rgba(56,189,248,0.2); border-radius:2px; padding:6px 8px;">
+                <span style="font-size:8.5px; color:#38bdf8; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; display:block; margin-bottom:2px;">STREAMED CHAT SPEECH PAYLOAD</span>
+                <div id="decision-speech-val" style="font-size:10px; color:#fafafa; font-weight:500; line-height:1.35;">
                   "Awaiting next conversational turn."
                 </div>
               </div>
@@ -270,9 +298,9 @@ export class AICoreModal {
 
             <!-- Real-Time Activity Log -->
             <div style="margin-top:12px;">
-              <div style="font-size:10.5px; color:#7dd3fc; font-weight:700; margin-bottom:6px;">CONVERSATIONAL STREAM LOG</div>
-              <div id="ai-stream-log" style="height:120px; overflow-y:auto; background:rgba(0,0,0,0.45); border:1px solid rgba(0,240,255,0.15); border-radius:8px; padding:8px; font-family:var(--holo-font-mono); font-size:10px; color:#94a3b8;">
-                <div style="color:#00f0ff;">[READY] AI Core Test Harness Initialized.</div>
+              <div style="font-size:9.5px; color:#71717a; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px;">CONVERSATIONAL STREAM LOG</div>
+              <div id="ai-stream-log" style="height:120px; overflow-y:auto; background:#08080a; border:1px solid var(--holo-border); border-radius:2px; padding:8px; font-family:var(--holo-font-mono); font-size:10px; color:#a1a1aa;">
+                <div style="color:#38bdf8;">[READY] AI Core Test Harness Initialized.</div>
               </div>
             </div>
           </div>
@@ -292,32 +320,28 @@ export class AICoreModal {
     const btnClose = this.container.querySelector('#btn-close-ai-core');
     btnClose?.addEventListener('click', () => this.toggle(false));
 
-    // Tab switcher
-    const tabs = this.container.querySelectorAll('[data-ai-tab]');
+    // Tab switchers
+    const tabs = this.container.querySelectorAll('.holo-tab');
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
         tabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
-        const k = tab.getAttribute('data-ai-tab') as 'llm' | 'tts' | 'test';
-        this.switchTab(k);
+        const target = tab.getAttribute('data-ai-tab') as 'llm' | 'tts' | 'test';
+        this.switchTab(target);
       });
     });
 
-    // Provider preset switcher
-    const selectProvider = this.container.querySelector('#select-llm-provider') as HTMLSelectElement;
+    // Provider select
+    const selProvider = this.container.querySelector('#select-llm-provider') as HTMLSelectElement;
+    const badgeProvider = this.container.querySelector('#badge-llm-provider') as HTMLElement;
     const inputBaseUrl = this.container.querySelector('#input-llm-base-url') as HTMLInputElement;
     const inputModel = this.container.querySelector('#input-llm-model') as HTMLInputElement;
-    const badgeProvider = this.container.querySelector('#badge-llm-provider');
+    const selDecisionModel = this.container.querySelector('#select-decision-model') as HTMLSelectElement;
 
-    selectProvider?.addEventListener('change', () => {
-      const p = selectProvider.value as LLMConfig['provider'];
-      this.llmConfig.provider = p;
+    selProvider?.addEventListener('change', () => {
+      const p = selProvider.value;
       if (badgeProvider) badgeProvider.textContent = p.toUpperCase();
-
-      if (p === 'openai') {
-        inputBaseUrl.value = 'https://api.openai.com/v1';
-        inputModel.value = 'gpt-4o-mini';
-      } else if (p === 'groq') {
+      if (p === 'groq') {
         inputBaseUrl.value = 'https://api.groq.com/openai/v1';
         inputModel.value = 'llama-3.3-70b-versatile';
       } else if (p === 'openrouter') {
@@ -325,20 +349,20 @@ export class AICoreModal {
         inputModel.value = 'meta-llama/llama-3.3-70b-instruct';
       } else if (p === 'gemini') {
         inputBaseUrl.value = 'https://generativelanguage.googleapis.com/v1beta/openai/';
-        inputModel.value = 'gemini-2.0-flash';
+        inputModel.value = 'gemini-1.5-flash';
       } else if (p === 'ollama') {
         inputBaseUrl.value = 'http://localhost:11434/v1';
-        inputModel.value = 'qwen2.5:7b';
-      } else if (p === 'mock') {
-        inputBaseUrl.value = 'http://localhost:8765/api';
-        inputModel.value = 'xerokratos-simulator-v2';
+        inputModel.value = 'llama3.2';
+      } else if (p === 'openai') {
+        inputBaseUrl.value = 'https://api.openai.com/v1';
+        inputModel.value = 'gpt-4o-mini';
       }
     });
 
-    // Toggle API Key visibility
+    // Key visibility toggle
+    const btnKeyVis = this.container.querySelector('#btn-toggle-key-vis');
     const inputApiKey = this.container.querySelector('#input-llm-api-key') as HTMLInputElement;
-    const btnToggleVis = this.container.querySelector('#btn-toggle-key-vis');
-    btnToggleVis?.addEventListener('click', () => {
+    btnKeyVis?.addEventListener('click', () => {
       if (inputApiKey) {
         inputApiKey.type = inputApiKey.type === 'password' ? 'text' : 'password';
       }
@@ -349,49 +373,50 @@ export class AICoreModal {
     const lblTemp = this.container.querySelector('#lbl-val-temp');
     sliderTemp?.addEventListener('input', () => {
       if (lblTemp) lblTemp.textContent = sliderTemp.value;
-      this.llmConfig.temperature = parseFloat(sliderTemp.value);
     });
 
     // Save LLM Config
     const btnSaveLLM = this.container.querySelector('#btn-save-llm-config');
     btnSaveLLM?.addEventListener('click', () => {
-      this.llmConfig.baseUrl = inputBaseUrl.value.trim();
-      this.llmConfig.apiKey = inputApiKey.value.trim();
-      this.llmConfig.model = inputModel.value.trim();
-      const taPrompt = this.container?.querySelector('#textarea-system-prompt') as HTMLTextAreaElement;
-      if (taPrompt) this.llmConfig.systemPrompt = taPrompt.value.trim();
+      this.llmConfig.provider = selProvider?.value as any || 'openai';
+      this.llmConfig.baseUrl = inputBaseUrl?.value || 'https://api.openai.com/v1';
+      this.llmConfig.apiKey = inputApiKey?.value || '';
+      this.llmConfig.model = inputModel?.value || 'gpt-4o-mini';
+      this.llmConfig.decisionModel = selDecisionModel?.value || 'vllm-sr/d3-flash';
+      this.llmConfig.temperature = parseFloat(sliderTemp?.value || '0.7');
+      const textareaPrompt = this.container?.querySelector('#textarea-system-prompt') as HTMLTextAreaElement;
+      if (textareaPrompt) this.llmConfig.systemPrompt = textareaPrompt.value;
 
       this.persistConfig();
       this.callbacks.onSaveLLMConfig?.(this.llmConfig);
-      this.log(`[LLM] Config saved: ${this.llmConfig.model} @ ${this.llmConfig.baseUrl}`);
-      alert('LLM configuration saved and synced to hologram daemon!');
+      this.log(`[SAVED] LLM Chat Model: ${this.llmConfig.model}, Decision Model: ${this.llmConfig.decisionModel}`);
     });
 
     // Save TTS Config
-    const selectEngine = this.container.querySelector('#select-tts-engine') as HTMLSelectElement;
-    const selectVoice = this.container.querySelector('#select-tts-voice') as HTMLSelectElement;
-    const selectRate = this.container.querySelector('#select-tts-rate') as HTMLSelectElement;
     const btnSaveTTS = this.container.querySelector('#btn-save-tts-config');
+    const selEngine = this.container.querySelector('#select-tts-engine') as HTMLSelectElement;
+    const selVoice = this.container.querySelector('#select-tts-voice') as HTMLSelectElement;
+    const selRate = this.container.querySelector('#select-tts-rate') as HTMLSelectElement;
 
     btnSaveTTS?.addEventListener('click', () => {
-      this.ttsConfig.engine = selectEngine.value as any;
-      this.ttsConfig.voice = selectVoice.value;
-      this.ttsConfig.rate = selectRate.value;
+      this.ttsConfig.engine = selEngine?.value as any || 'edge_tts';
+      this.ttsConfig.voice = selVoice?.value || 'en-US-ChristopherNeural';
+      this.ttsConfig.rate = selRate?.value || '+0%';
+
       this.persistConfig();
       this.callbacks.onSaveTTSConfig?.(this.ttsConfig);
-      this.log(`[TTS] Voice profile updated: ${this.ttsConfig.voice} (${this.ttsConfig.engine})`);
-      alert(`Applied TTS Voice: ${this.ttsConfig.voice}`);
+      this.log(`[SAVED] TTS Engine: ${this.ttsConfig.engine}, Voice: ${this.ttsConfig.voice}`);
     });
 
-    // Test Voice Sample
-    const btnPreviewVoice = this.container.querySelector('#btn-test-voice-sample');
-    btnPreviewVoice?.addEventListener('click', () => {
-      const v = selectVoice.value;
-      const sampleText = "XeroKratos holographic voice synthesis locked and calibrated for Pepper's Ghost optical stage.";
-      this.callbacks.onTestVoiceSample?.(sampleText, v);
+    // Preview Voice Sample
+    const btnTestVoice = this.container.querySelector('#btn-test-voice-sample');
+    btnTestVoice?.addEventListener('click', () => {
+      const v = selVoice?.value || 'en-US-ChristopherNeural';
+      const sample = "The Pepper's Ghost optical stage operates at 45 degrees, projecting a 3D hologram directly above your screen.";
+      this.callbacks.onTestVoiceSample?.(sample, v);
     });
 
-    // Prompt Test Sender
+    // Test Harness Send
     const inputPrompt = this.container.querySelector('#input-test-prompt') as HTMLInputElement;
     const btnSendPrompt = this.container.querySelector('#btn-send-test-prompt');
 
@@ -431,27 +456,6 @@ export class AICoreModal {
     });
   }
 
-  public log(line: string): void {
-    if (!this.container) return;
-    const logBox = this.container.querySelector('#ai-stream-log');
-    if (logBox) {
-      const time = new Date().toTimeString().slice(0, 8);
-      const row = document.createElement('div');
-      row.style.marginBottom = '4px';
-      row.innerHTML = `<span style="color:#64748b;">[${time}]</span> ${line}`;
-      logBox.appendChild(row);
-      logBox.scrollTop = logBox.scrollHeight;
-    }
-  }
-
-  public toggle(force?: boolean): void {
-    this.isOpen = force !== undefined ? force : !this.isOpen;
-    if (this.container) {
-      this.container.classList.toggle('rig-studio-closed', !this.isOpen);
-      this.container.classList.toggle('rig-studio-open', this.isOpen);
-    }
-  }
-
   public renderDecisionCard(decision: AgenticDecisionPacket): void {
     if (!this.container) return;
 
@@ -480,7 +484,7 @@ export class AICoreModal {
         elTool.style.color = '#c084fc';
       } else {
         elTool.textContent = 'NONE';
-        elTool.style.color = '#64748b';
+        elTool.style.color = '#71717a';
       }
     }
 
@@ -495,7 +499,7 @@ export class AICoreModal {
     }
 
     if (elThought) {
-      elThought.textContent = decision.thought_trace || 'Direct intent-action resolution applied.';
+      elThought.textContent = decision.thought_trace || 'Direct intent-action resolution applied via vllm-sr/d3-flash.';
     }
 
     if (elSpeech) {
@@ -504,12 +508,33 @@ export class AICoreModal {
 
     // Flash border on decision pulse
     if (card) {
-      card.style.borderColor = '#00f0ff';
-      card.style.boxShadow = '0 0 16px rgba(0,240,255,0.35)';
+      card.style.borderColor = '#38bdf8';
+      card.style.boxShadow = '0 0 12px rgba(56,189,248,0.3)';
       setTimeout(() => {
-        card.style.borderColor = 'rgba(0,240,255,0.25)';
+        card.style.borderColor = 'rgba(255,255,255,0.12)';
         card.style.boxShadow = 'none';
       }, 700);
+    }
+  }
+
+  public log(line: string): void {
+    if (!this.container) return;
+    const logBox = this.container.querySelector('#ai-stream-log');
+    if (logBox) {
+      const time = new Date().toTimeString().slice(0, 8);
+      const row = document.createElement('div');
+      row.style.marginBottom = '4px';
+      row.innerHTML = `<span style="color:#71717a;">[${time}]</span> ${line}`;
+      logBox.appendChild(row);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+  }
+
+  public toggle(force?: boolean): void {
+    this.isOpen = force !== undefined ? force : !this.isOpen;
+    if (this.container) {
+      this.container.classList.toggle('rig-studio-closed', !this.isOpen);
+      this.container.classList.toggle('rig-studio-open', this.isOpen);
     }
   }
 
