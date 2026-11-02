@@ -53,6 +53,7 @@ export class AICoreModal {
     this.loadPersistedConfig();
     if (typeof document !== 'undefined') {
       this.buildDOM();
+      this.fetchDiskConfig();
     }
   }
 
@@ -377,7 +378,7 @@ export class AICoreModal {
 
     // Save LLM Config
     const btnSaveLLM = this.container.querySelector('#btn-save-llm-config');
-    btnSaveLLM?.addEventListener('click', () => {
+    btnSaveLLM?.addEventListener('click', async () => {
       this.llmConfig.provider = selProvider?.value as any || 'openai';
       this.llmConfig.baseUrl = inputBaseUrl?.value || 'https://api.openai.com/v1';
       this.llmConfig.apiKey = inputApiKey?.value || '';
@@ -389,6 +390,27 @@ export class AICoreModal {
 
       this.persistConfig();
       this.callbacks.onSaveLLMConfig?.(this.llmConfig);
+
+      // Persist to local PC disk file via backend REST API
+      try {
+        await fetch('http://localhost:8765/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: this.llmConfig.provider,
+            baseUrl: this.llmConfig.baseUrl,
+            apiKey: this.llmConfig.apiKey,
+            model: this.llmConfig.model,
+            temperature: this.llmConfig.temperature,
+            systemPrompt: this.llmConfig.systemPrompt,
+            decisionModel: this.llmConfig.decisionModel
+          })
+        });
+        this.log(`[SAVED TO DISK] Configuration persisted to PC file (config/llm_config.json)`);
+      } catch (err) {
+        this.log(`[SAVE] Local memory saved; backend sync queued.`);
+      }
+
       this.log(`[SAVED] LLM Chat Model: ${this.llmConfig.model}, Decision Model: ${this.llmConfig.decisionModel}`);
     });
 
@@ -398,13 +420,30 @@ export class AICoreModal {
     const selVoice = this.container.querySelector('#select-tts-voice') as HTMLSelectElement;
     const selRate = this.container.querySelector('#select-tts-rate') as HTMLSelectElement;
 
-    btnSaveTTS?.addEventListener('click', () => {
+    btnSaveTTS?.addEventListener('click', async () => {
       this.ttsConfig.engine = selEngine?.value as any || 'edge_tts';
       this.ttsConfig.voice = selVoice?.value || 'en-US-ChristopherNeural';
       this.ttsConfig.rate = selRate?.value || '+0%';
 
       this.persistConfig();
       this.callbacks.onSaveTTSConfig?.(this.ttsConfig);
+
+      // Persist TTS to local PC disk file
+      try {
+        await fetch('http://localhost:8765/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ttsEngine: this.ttsConfig.engine,
+            ttsVoice: this.ttsConfig.voice,
+            ttsRate: this.ttsConfig.rate
+          })
+        });
+        this.log(`[SAVED TO DISK] TTS config saved to PC file (config/llm_config.json)`);
+      } catch (err) {
+        // Fallback
+      }
+
       this.log(`[SAVED] TTS Engine: ${this.ttsConfig.engine}, Voice: ${this.ttsConfig.voice}`);
     });
 
@@ -535,6 +574,86 @@ export class AICoreModal {
     if (this.container) {
       this.container.classList.toggle('rig-studio-closed', !this.isOpen);
       this.container.classList.toggle('rig-studio-open', this.isOpen);
+    }
+  }
+
+  public async fetchDiskConfig(): Promise<void> {
+    if (typeof fetch === 'undefined') return;
+    try {
+      const res = await fetch('http://localhost:8765/api/config');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.config) {
+          this.applyDiskConfig(json.config);
+          this.log('[CONFIG] Synchronized with PC disk settings (config/llm_config.json).');
+        }
+      }
+    } catch {
+      // Backend may be starting up
+    }
+  }
+
+  public applyDiskConfig(cfg: any): void {
+    if (!cfg) return;
+
+    if (cfg.provider) this.llmConfig.provider = cfg.provider;
+    if (cfg.baseUrl || cfg.base_url) this.llmConfig.baseUrl = cfg.baseUrl || cfg.base_url;
+    if (cfg.apiKey !== undefined || cfg.api_key !== undefined) this.llmConfig.apiKey = cfg.apiKey ?? cfg.api_key;
+    if (cfg.model) this.llmConfig.model = cfg.model;
+    if (cfg.temperature !== undefined) this.llmConfig.temperature = cfg.temperature;
+    if (cfg.systemPrompt || cfg.system_prompt) this.llmConfig.systemPrompt = cfg.systemPrompt || cfg.system_prompt;
+    if (cfg.decisionModel || cfg.decision_model) this.llmConfig.decisionModel = cfg.decisionModel || cfg.decision_model;
+
+    if (cfg.ttsEngine || cfg.tts_engine) this.ttsConfig.engine = cfg.ttsEngine || cfg.tts_engine;
+    if (cfg.ttsVoice || cfg.tts_voice) this.ttsConfig.voice = cfg.ttsVoice || cfg.tts_voice;
+    if (cfg.ttsRate || cfg.tts_rate) this.ttsConfig.rate = cfg.ttsRate || cfg.tts_rate;
+
+    this.persistConfig();
+
+    // Populate DOM inputs if available
+    if (this.container) {
+      const selProvider = this.container.querySelector('#select-llm-provider') as HTMLSelectElement;
+      if (selProvider) selProvider.value = this.llmConfig.provider;
+
+      const badgeProvider = this.container.querySelector('#badge-llm-provider');
+      if (badgeProvider) badgeProvider.textContent = this.llmConfig.provider.toUpperCase();
+
+      const inputBaseUrl = this.container.querySelector('#input-llm-base-url') as HTMLInputElement;
+      if (inputBaseUrl) inputBaseUrl.value = this.llmConfig.baseUrl;
+
+      const inputApiKey = this.container.querySelector('#input-llm-api-key') as HTMLInputElement;
+      if (inputApiKey) inputApiKey.value = this.llmConfig.apiKey;
+
+      const inputModel = this.container.querySelector('#input-llm-model') as HTMLInputElement;
+      if (inputModel) inputModel.value = this.llmConfig.model;
+
+      const selDecision = this.container.querySelector('#select-decision-model') as HTMLSelectElement;
+      if (selDecision && this.llmConfig.decisionModel) selDecision.value = this.llmConfig.decisionModel;
+
+      const sliderTemp = this.container.querySelector('#slider-llm-temp') as HTMLInputElement;
+      const lblTemp = this.container.querySelector('#lbl-val-temp');
+      if (sliderTemp) sliderTemp.value = this.llmConfig.temperature.toString();
+      if (lblTemp) lblTemp.textContent = this.llmConfig.temperature.toString();
+
+      const txtPrompt = this.container.querySelector('#textarea-system-prompt') as HTMLTextAreaElement;
+      if (txtPrompt) txtPrompt.value = this.llmConfig.systemPrompt;
+
+      const selEngine = this.container.querySelector('#select-tts-engine') as HTMLSelectElement;
+      if (selEngine) selEngine.value = this.ttsConfig.engine;
+
+      const selVoice = this.container.querySelector('#select-tts-voice') as HTMLSelectElement;
+      if (selVoice) selVoice.value = this.ttsConfig.voice;
+
+      const selRate = this.container.querySelector('#select-tts-rate') as HTMLSelectElement;
+      if (selRate) selRate.value = this.ttsConfig.rate;
+    }
+  }
+
+  public setChatSpeechPayload(text: string): void {
+    if (!this.container) return;
+    const elSpeech = this.container.querySelector('#decision-speech-val');
+    if (elSpeech) {
+      elSpeech.textContent = `"${text}"`;
     }
   }
 

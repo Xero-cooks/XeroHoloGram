@@ -112,4 +112,52 @@ describe('Decision-Based LLM Engine & Inspector', () => {
     expect(confBadge?.textContent).toContain('99% CONFIDENCE');
     expect(speechEl?.textContent).toContain('Initiating quantum self-repair');
   });
+
+  it('should dispatch chat_response to onChatResponse subscribers', () => {
+    const client = new HoloSocketClient('ws://localhost:8765/ws/hologram');
+    let receivedChatText = '';
+
+    client.onChatResponse((text) => {
+      receivedChatText = text;
+    });
+
+    const mockChatMsg = {
+      type: 'chat_response',
+      text: 'The holographic harness is operating at 60 frames per second.',
+      role: 'assistant'
+    };
+
+    (client as any).handleTextMessage(JSON.stringify(mockChatMsg));
+
+    expect(receivedChatText).toBe('The holographic harness is operating at 60 frames per second.');
+  });
+
+  it('should synchronize model and TTS settings from disk config', () => {
+    const modal = new AICoreModal();
+    const diskConfig = {
+      provider: 'groq',
+      baseUrl: 'https://api.groq.com/openai/v1',
+      apiKey: 'gsk_testkey123',
+      model: 'llama-3.3-70b-versatile',
+      temperature: 0.8,
+      decisionModel: 'vllm-sr/d3-ultra',
+      ttsEngine: 'edge_tts',
+      ttsVoice: 'en-US-ChristopherNeural',
+      ttsRate: '+10%'
+    };
+
+    modal.applyDiskConfig(diskConfig);
+
+    const llm = modal.getLLMConfig();
+    expect(llm.provider).toBe('groq');
+    expect(llm.baseUrl).toBe('https://api.groq.com/openai/v1');
+    expect(llm.apiKey).toBe('gsk_testkey123');
+    expect(llm.model).toBe('llama-3.3-70b-versatile');
+    expect(llm.temperature).toBe(0.8);
+    expect(llm.decisionModel).toBe('vllm-sr/d3-ultra');
+
+    const tts = modal.getTTSConfig();
+    expect(tts.voice).toBe('en-US-ChristopherNeural');
+    expect(tts.rate).toBe('+10%');
+  });
 });

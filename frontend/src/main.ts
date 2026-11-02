@@ -79,6 +79,68 @@ async function bootstrapHologramApp() {
   let jawArticOffset = 0.0;
   let jawSpeechInterval: any = null;
 
+  // D3 Pending Action & Kinematic Gesture Queue (Deferred until speech start)
+  let pendingDecisionActions: AgenticDecisionPacket | null = null;
+  let gestureKeyframeQueue: Array<{
+    triggerMs: number;
+    durationMs: number;
+    preset: string;
+    weight: number;
+    overrides: Record<string, [number, number, number]>;
+  }> = [];
+  let gestureStartTime = performance.now();
+
+  const shaderColorMap: Record<string, number> = {
+    cyan_nominative: 0x00f0ff,
+    magenta_glitch: 0xff0055,
+    emerald_healed: 0x00ff9d,
+    amber_warning: 0xffaa00,
+    deep_blue_focus: 0x0088ff
+  };
+
+  const executeToolAction = (tool: ToolActionCall) => {
+    floatingWidgets.log(`[TOOL TRIGGER] ${tool.name}`);
+    if (tool.name === 'summon_wrist_terminal') {
+      floatingWidgets.setTerminalVisible(true);
+    } else if (tool.name === 'spawn_subagent') {
+      const subId = tool.parameters?.worker_id || `worker-${Math.floor(Math.random() * 900 + 100)}`;
+      floatingWidgets.spawnSubAgent(subId, 'Task Coordinator');
+      setTimeout(() => floatingWidgets.dismissSubAgent(subId), 5000);
+    } else if (tool.name === 'execute_quantum_heal') {
+      particles.setIntensity(0.7);
+      setTimeout(() => particles.setIntensity(0.38), 2000);
+      floatingWidgets.log('[QUANTUM HEAL] Restoring canonical SO(3) rest pose.');
+    }
+  };
+
+  const executePendingActions = () => {
+    if (!pendingDecisionActions) return;
+    const decision = pendingDecisionActions;
+    pendingDecisionActions = null;
+
+    // 1. Actuate Fresnel Shader
+    if (decision.holo_shader_state && decision.holo_shader_state in shaderColorMap) {
+      proceduralRig.setShaderColor?.(shaderColorMap[decision.holo_shader_state]);
+    }
+
+    // 2. Actuate Tool Call
+    if (decision.tool_call) {
+      executeToolAction(decision.tool_call);
+    }
+
+    // 3. Actuate Physical Kinematic Gestures synchronized with speech start
+    if (decision.gesture_sequence && decision.gesture_sequence.length > 0) {
+      gestureStartTime = performance.now();
+      gestureKeyframeQueue = decision.gesture_sequence.map(kf => ({
+        triggerMs: kf.trigger_ms,
+        durationMs: kf.duration_ms,
+        preset: kf.base_preset,
+        weight: kf.blend_weight,
+        overrides: kf.bone_angle_overrides_deg || {}
+      }));
+    }
+  };
+
   const stopAgentSpeech = () => {
     isAgentSpeaking = false;
     audioPlayer.flush();
@@ -97,6 +159,9 @@ async function bootstrapHologramApp() {
 
   const speakAgentResponse = (speechText: string, binaryMp3Chunk?: ArrayBuffer) => {
     if (!speechText && !binaryMp3Chunk) return;
+
+    // Synchronously execute actions the instant speech starts!
+    executePendingActions();
 
     stopAgentSpeech();
     isAgentSpeaking = true;
@@ -428,24 +493,18 @@ async function bootstrapHologramApp() {
   });
 
   wsClient.onAudio((_header, pcmSamples) => {
+    executePendingActions();
     audioPlayer.playChunk(pcmSamples);
     telemetryHUD.updateData({ speechState: 'SPEAKING' });
   });
 
   wsClient.onRawAudio((_header, rawPayload) => {
     if (rawPayload && rawPayload.byteLength > 16) {
+      executePendingActions();
       audioPlayer.playEncodedChunk(rawPayload);
+      telemetryHUD.updateData({ speechState: 'SPEAKING' });
     }
   });
-
-  let gestureKeyframeQueue: Array<{
-    triggerMs: number;
-    durationMs: number;
-    preset: string;
-    weight: number;
-    overrides: Record<string, [number, number, number]>;
-  }> = [];
-  let gestureStartTime = performance.now();
 
   wsClient.onKinematics((packet: D3KinematicPacket) => {
     telemetryHUD.updateData({
@@ -455,41 +514,27 @@ async function bootstrapHologramApp() {
       d3LatencyMs: Math.round(packet.gesture_sequence.length ? 120 : 80)
     });
 
-    floatingWidgets.log(`[D3] Intent: ${packet.intent_class} (${packet.emotion})`);
+    floatingWidgets.log(`[D3 KINEMATICS] Intent: ${packet.intent_class} (${packet.emotion})`);
     aiModal.log(`[D3 GESTURE]: ${packet.intent_class} (${packet.emotion})`);
 
-    // Handle tool summon / terminal intent
-    if (packet.intent_class.includes('terminal') || packet.intent_class.includes('architecture')) {
-      floatingWidgets.setTerminalVisible(true);
-    }
-
-    if (packet.intent_class.includes('sub_agent') || packet.intent_class.includes('tool')) {
-      const subId = `worker-${Math.floor(Math.random() * 900 + 100)}`;
-      floatingWidgets.spawnSubAgent(subId, 'Reasoner-Node');
-      setTimeout(() => floatingWidgets.dismissSubAgent(subId), 4000);
-    }
-
-    // Queue gesture sequence
-    gestureStartTime = performance.now();
-    gestureKeyframeQueue = packet.gesture_sequence.map(kf => ({
-      triggerMs: kf.trigger_ms,
-      durationMs: kf.duration_ms,
-      preset: kf.base_preset,
-      weight: kf.blend_weight,
-      overrides: kf.bone_angle_overrides_deg || {}
-    }));
+    // Queue kinematic keyframes into pending decision buffer (fires on speech onset)
+    pendingDecisionActions = {
+      intent_class: packet.intent_class,
+      confidence: 0.95,
+      speech_response: '',
+      emotion: packet.emotion,
+      gaze_vector: packet.gaze_vector,
+      holo_shader_state: packet.holo_shader_state,
+      tool_call: null,
+      gesture_sequence: packet.gesture_sequence
+    };
   });
 
-  // Handle Structured Decision LLM Packets
+  // Handle Structured Decision LLM Packets (System 1 - Policy, Tools & SO(3) Actions)
   wsClient.onDecision((decision: AgenticDecisionPacket) => {
     aiModal.renderDecisionCard(decision);
-    aiModal.log(`[DECISION ${decision.intent_class.toUpperCase()}]: "${decision.speech_response}"`);
+    aiModal.log(`[D3 POLICY ${decision.intent_class.toUpperCase()}]: Calibrated routing (${Math.round(decision.confidence * 100)}%)`);
     floatingWidgets.log(`[POLICY DECISION] ${decision.intent_class} (${Math.round(decision.confidence * 100)}% conf)`);
-
-    // LOUD VOICE SYNTHESIS: Make the agent speak the decision answer immediately!
-    if (decision.speech_response && decision.speech_response.trim().length > 0) {
-      speakAgentResponse(decision.speech_response);
-    }
 
     telemetryHUD.updateData({
       intentClass: decision.intent_class,
@@ -498,34 +543,34 @@ async function bootstrapHologramApp() {
       d3LatencyMs: Math.round(decision.gesture_sequence.length ? 115 : 65)
     });
 
-    // Update Fresnel Shader Palette according to decision state
-    const shaderColorMap: Record<string, number> = {
-      cyan_nominative: 0x00f0ff,
-      magenta_glitch: 0xff0055,
-      emerald_healed: 0x00ff9d,
-      amber_warning: 0xffaa00,
-      deep_blue_focus: 0x0088ff
-    };
-    if (decision.holo_shader_state in shaderColorMap) {
-      proceduralRig.setShaderColor?.(shaderColorMap[decision.holo_shader_state]);
-    }
+    // Hold actions in pending buffer; they will execute the exact millisecond speech begins!
+    pendingDecisionActions = decision;
+  });
+
+  // Handle Conversational Chat LLM Spoken Response (System 2 - Speech Output)
+  wsClient.onChatResponse((chatText: string) => {
+    floatingWidgets.log(`[CHAT LLM] "${chatText}"`);
+    aiModal.log(`[AI]: "${chatText}"`);
+    aiModal.setChatSpeechPayload(chatText);
+
+    // Speak the Chat LLM's generated response! Actions trigger synchronously on speech onset
+    speakAgentResponse(chatText);
+  });
+
+  // Handle Live Streaming Chat Token Chunks
+  wsClient.onChatChunk((_token: string) => {
+    // Tokens stream in real time
+  });
+
+  // Handle Real-Time Model Config Synchronization from PC Disk
+  wsClient.onConfigSync((config: any) => {
+    aiModal.applyDiskConfig(config);
+    floatingWidgets.log('[CONFIG] Model settings synced from PC disk (config/llm_config.json)');
   });
 
   // Handle Tool Action Triggers
   wsClient.onToolAction((tool: ToolActionCall) => {
-    floatingWidgets.log(`[TOOL TRIGGER] ${tool.name}`);
-
-    if (tool.name === 'summon_wrist_terminal') {
-      floatingWidgets.setTerminalVisible(true);
-    } else if (tool.name === 'spawn_subagent') {
-      const subId = tool.parameters?.worker_id || `worker-${Math.floor(Math.random() * 900 + 100)}`;
-      floatingWidgets.spawnSubAgent(subId, 'Task Coordinator');
-      setTimeout(() => floatingWidgets.dismissSubAgent(subId), 5000);
-    } else if (tool.name === 'execute_quantum_heal') {
-      particles.setIntensity(0.7);
-      setTimeout(() => particles.setIntensity(0.38), 2000);
-      floatingWidgets.log('[QUANTUM HEAL] Restoring canonical SO(3) rest pose.');
-    }
+    executeToolAction(tool);
   });
 
   wsClient.connect();
