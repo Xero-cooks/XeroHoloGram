@@ -141,6 +141,43 @@ async function bootstrapHologramApp() {
     }
   };
 
+  let activeTurnAudioChunksReceived = 0;
+  let audioEndCheckTimer: any = null;
+
+  const startJawCadence = () => {
+    if (jawSpeechInterval) return;
+    let phase = 0;
+    jawSpeechInterval = setInterval(() => {
+      if (!isAgentSpeaking) {
+        clearInterval(jawSpeechInterval);
+        jawSpeechInterval = null;
+        jawArticOffset = 0.0;
+        if (activeJawBone) activeJawBone.rotation.x = 0;
+        return;
+      }
+      phase += 0.38;
+      jawArticOffset = 0.04 + Math.abs(Math.sin(phase)) * 0.18;
+      if (activeJawBone) {
+        activeJawBone.rotation.x = jawArticOffset;
+      }
+    }, 33);
+  };
+
+  const scheduleAudioStreamEndWatcher = () => {
+    if (audioEndCheckTimer) clearInterval(audioEndCheckTimer);
+    audioEndCheckTimer = setInterval(() => {
+      if (audioPlayer.getPlaybackRemainingSec() <= 0.05) {
+        clearInterval(audioEndCheckTimer);
+        audioEndCheckTimer = null;
+        if (isAgentSpeaking && (typeof window === 'undefined' || !window.speechSynthesis?.speaking)) {
+          stopAgentSpeech();
+          telemetryHUD.updateData({ speechState: 'IDLE' });
+          currentBasePose = 'neutral';
+        }
+      }
+    }, 80);
+  };
+
   const stopAgentSpeech = () => {
     isAgentSpeaking = false;
     audioPlayer.flush();
@@ -151,6 +188,10 @@ async function bootstrapHologramApp() {
       clearInterval(jawSpeechInterval);
       jawSpeechInterval = null;
     }
+    if (audioEndCheckTimer) {
+      clearInterval(audioEndCheckTimer);
+      audioEndCheckTimer = null;
+    }
     jawArticOffset = 0.0;
     if (activeJawBone) {
       activeJawBone.rotation.x = 0;
@@ -160,44 +201,27 @@ async function bootstrapHologramApp() {
   const speakAgentResponse = (speechText: string, binaryMp3Chunk?: ArrayBuffer) => {
     if (!speechText && !binaryMp3Chunk) return;
 
-    // Synchronously execute actions the instant speech starts!
-    executePendingActions();
-
-    stopAgentSpeech();
-    isAgentSpeaking = true;
-    audioPlayer.unlockAudioContext();
-    telemetryHUD.updateData({ speechState: 'SPEAKING' });
-
-    // Live Jaw Articulation Cadence for Spoken Speech Synchronization
-    let phase = 0;
-    jawSpeechInterval = setInterval(() => {
-      if (!isAgentSpeaking) {
-        clearInterval(jawSpeechInterval);
-        jawSpeechInterval = null;
-        jawArticOffset = 0.0;
-        return;
-      }
-      phase += 0.38;
-      jawArticOffset = 0.04 + Math.abs(Math.sin(phase)) * 0.18;
-      if (activeJawBone) {
-        activeJawBone.rotation.x = jawArticOffset;
-      }
-    }, 33);
-
     const ttsCfg = aiModal.getTTSConfig();
 
-    // If streaming binary MP3 chunks from EdgeTTS backend and user chose edge_tts
-    if (binaryMp3Chunk && binaryMp3Chunk.byteLength > 16 && ttsCfg.engine === 'edge_tts') {
-      audioPlayer.playEncodedChunk(binaryMp3Chunk).then(() => {
-        // Chunk finished
-      }).catch(() => {
-        // Fallback to browser SpeechSynthesis if chunk decoding failed
-        speakViaSpeechSynthesis(speechText);
-      });
+    // If streaming binary audio chunks were already received from backend, don't duel with browser TTS
+    if (activeTurnAudioChunksReceived > 0 && ttsCfg.engine === 'edge_tts') {
+      floatingWidgets.log('[AUDIO] Spoken via backend EdgeTTS stream.');
       return;
     }
 
-    // High-Loudness Voice Output via Web Speech Synthesis (100% Reliable, Loud, Clear)
+    // If binary chunk passed directly
+    if (binaryMp3Chunk && binaryMp3Chunk.byteLength > 16 && ttsCfg.engine === 'edge_tts') {
+      executePendingActions();
+      isAgentSpeaking = true;
+      startJawCadence();
+      audioPlayer.unlockAudioContext();
+      telemetryHUD.updateData({ speechState: 'SPEAKING' });
+      audioPlayer.playEncodedChunk(binaryMp3Chunk);
+      scheduleAudioStreamEndWatcher();
+      return;
+    }
+
+    // Otherwise speak with browser speech synthesis
     speakViaSpeechSynthesis(speechText);
   };
 
@@ -209,53 +233,59 @@ async function bootstrapHologramApp() {
     }
 
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.volume = 1.0; // 100% Maximum Loudness
-    utterance.rate = 1.03;  // Natural conversational speed
-    utterance.pitch = 0.95; // Resonant timbre
 
-    // Select the best available natural English voice
-    const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find(v => 
-      v.lang.startsWith('en') && (
-        v.name.includes('David') || 
-        v.name.includes('Mark') || 
-        v.name.includes('Guy') || 
-        v.name.includes('Christopher') || 
-        v.name.includes('Aria') ||
-        v.name.includes('Natural') ||
-        v.name.includes('Google US English')
-      )
-    ) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+    // 35ms micro-pause to prevent audio driver DC offset snap/glitch on Windows
+    setTimeout(() => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.volume = 1.0; // 100% Maximum Loudness
+      utterance.rate = 1.02;  // Natural conversational speed
+      utterance.pitch = 0.95; // Resonant timbre
 
-    if (preferred) {
-      utterance.voice = preferred;
-    }
+      // Select the best available natural English voice
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(v => 
+        v.lang.startsWith('en') && (
+          v.name.includes('David') || 
+          v.name.includes('Mark') || 
+          v.name.includes('Guy') || 
+          v.name.includes('Christopher') || 
+          v.name.includes('Aria') ||
+          v.name.includes('Natural') ||
+          v.name.includes('Google US English')
+        )
+      ) || voices.find(v => v.lang.startsWith('en')) || voices[0];
 
-    utterance.onstart = () => {
-      isAgentSpeaking = true;
-      telemetryHUD.updateData({ speechState: 'SPEAKING' });
-    };
+      if (preferred) {
+        utterance.voice = preferred;
+      }
 
-    utterance.onend = () => {
-      stopAgentSpeech();
-      telemetryHUD.updateData({ speechState: 'IDLE' });
-      currentBasePose = 'neutral';
-    };
+      utterance.onstart = () => {
+        isAgentSpeaking = true;
+        startJawCadence();
+        executePendingActions();
+        telemetryHUD.updateData({ speechState: 'SPEAKING' });
+      };
 
-    utterance.onerror = () => {
-      stopAgentSpeech();
-      telemetryHUD.updateData({ speechState: 'IDLE' });
-    };
+      utterance.onend = () => {
+        stopAgentSpeech();
+        telemetryHUD.updateData({ speechState: 'IDLE' });
+        currentBasePose = 'neutral';
+      };
 
-    window.speechSynthesis.speak(utterance);
+      utterance.onerror = () => {
+        stopAgentSpeech();
+        telemetryHUD.updateData({ speechState: 'IDLE' });
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }, 35);
   };
 
   // 9. Speech Sensor (Hybrid Web Speech STT + Adaptive VAD with Silence Endpointing)
   const speechSensor = new SpeechSensor({
     onVADSpeechStart: () => {
-      // Immediate Barge-In reflex: Interrupt agent if already vocalizing
-      if (isAgentSpeaking || audioPlayer.getPlaybackRemainingSec() > 0.05) {
+      // Immediate Barge-In reflex: Interrupt agent ONLY if already vocalizing
+      if (isAgentSpeaking) {
         stopAgentSpeech();
         wsClient.sendBargeIn();
         floatingWidgets.log('[BARGE-IN] Interrupted agent speech playback');
@@ -279,6 +309,7 @@ async function bootstrapHologramApp() {
     },
     onFinalTranscript: (finalText: string) => {
       // TURN ENDPOINT TRIGGERED: User has stopped speaking!
+      activeTurnAudioChunksReceived = 0;
       telemetryHUD.updateData({ speechState: 'THINKING' });
       currentBasePose = 'finger_up_insight';
       wsClient.sendTranscript(finalText, true);
@@ -316,6 +347,7 @@ async function bootstrapHologramApp() {
       floatingWidgets.log(`[TTS SYNC] Voice: ${ttsCfg.voice}`);
     },
     onSendTestPrompt: (promptText: string) => {
+      activeTurnAudioChunksReceived = 0;
       floatingWidgets.log(`[PROMPT] "${promptText}"`);
       telemetryHUD.updateData({ speechState: 'THINKING' });
       currentBasePose = 'finger_up_insight';
@@ -493,16 +525,24 @@ async function bootstrapHologramApp() {
   });
 
   wsClient.onAudio((_header, pcmSamples) => {
+    activeTurnAudioChunksReceived++;
     executePendingActions();
+    isAgentSpeaking = true;
+    startJawCadence();
     audioPlayer.playChunk(pcmSamples);
     telemetryHUD.updateData({ speechState: 'SPEAKING' });
+    scheduleAudioStreamEndWatcher();
   });
 
   wsClient.onRawAudio((_header, rawPayload) => {
     if (rawPayload && rawPayload.byteLength > 16) {
+      activeTurnAudioChunksReceived++;
       executePendingActions();
+      isAgentSpeaking = true;
+      startJawCadence();
       audioPlayer.playEncodedChunk(rawPayload);
       telemetryHUD.updateData({ speechState: 'SPEAKING' });
+      scheduleAudioStreamEndWatcher();
     }
   });
 

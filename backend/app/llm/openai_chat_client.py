@@ -60,12 +60,19 @@ class OpenAIChatClient:
         Streams conversational tokens for spoken voice generation.
         Falls back to resilient spoken sentences if API key is mock or offline.
         """
-        # If API key is empty or mock, yield crisp spoken response directly
-        if not self.api_key or self.api_key in ("mock-key", "default-key", ""):
+        # Only skip external API call if using default official OpenAI URL without an API key
+        is_default_openai_without_key = (
+            "api.openai.com" in self.base_url and
+            (not self.api_key or self.api_key in ("mock-key", "default-key", ""))
+        )
+        if is_default_openai_without_key:
+            logger.info("OpenAIChatClient: No OpenAI API key provided for official endpoint. Using local conversational fallback.")
             fallback = self._get_fallback_speech(user_message)
             for word in fallback.split():
                 yield word + " "
             return
+
+        logger.info(f"OpenAIChatClient: streaming request to {self.base_url}/chat/completions (model={self.model})")
 
         payload_messages = [
             {"role": "system", "content": self.system_prompt},
@@ -82,8 +89,9 @@ class OpenAIChatClient:
 
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}"
         }
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
 
         url = f"{self.base_url}/chat/completions"
 
@@ -92,7 +100,28 @@ class OpenAIChatClient:
             async with httpx.AsyncClient(timeout=25.0) as client:
                 async with client.stream("POST", url, headers=headers, json=payload) as response:
                     if response.status_code != 200:
-                        logger.warning(f"OpenAI Chat API HTTP {response.status_code}, using fallback speech.")
+                        err_body = await response.aread()
+                        err_msg = err_body.decode('utf-8', errors='ignore')[:300]
+                        logger.error(f"Chat API HTTP {response.status_code} at {url} (model={self.model}): {err_msg}")
+                        
+                        # Try non-streaming fallback in case server does not support SSE
+                        try:
+                            logger.info(f"Attempting non-streaming fallback to {url}...")
+                            non_stream_payload = {**payload, "stream": False}
+                            res = await client.post(url, headers=headers, json=non_stream_payload, timeout=20.0)
+                            if res.status_code == 200:
+                                res_data = res.json()
+                                reply = res_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                                if reply:
+                                    logger.info(f"Non-streaming Chat response received ({len(reply)} chars)")
+                                    self.history.append({"role": "user", "content": user_message})
+                                    self.history.append({"role": "assistant", "content": reply})
+                                    for word in reply.split():
+                                        yield word + " "
+                                    return
+                        except Exception as non_stream_err:
+                            logger.warning(f"Non-streaming fallback failed: {non_stream_err}")
+
                         fallback = self._get_fallback_speech(user_message)
                         for word in fallback.split():
                             yield word + " "
@@ -116,13 +145,14 @@ class OpenAIChatClient:
             # Update conversational history
             if full_response:
                 complete_text = "".join(full_response)
+                logger.info(f"Chat LLM stream completed ({len(complete_text)} chars).")
                 self.history.append({"role": "user", "content": user_message})
                 self.history.append({"role": "assistant", "content": complete_text})
                 if len(self.history) > 10:
                     self.history = self.history[-10:]
 
         except Exception as e:
-            logger.warning(f"OpenAI Chat stream failed ({str(e)}), yielding fallback speech.")
+            logger.error(f"OpenAI Chat stream failed: {e}", exc_info=True)
             fallback = self._get_fallback_speech(user_message)
             for word in fallback.split():
                 yield word + " "

@@ -28,6 +28,9 @@ export class SpeechSensor {
   private isUserSpeaking: boolean = false;
   private pendingInterimText: string = "";
   private lastStabilizedText: string = "";
+  private lastCommittedText: string = "";
+  private lastCommittedTime: number = 0;
+  private postCommitCooldownUntil: number = 0; // Grace period after turn commit to prevent false barge-in
   
   // Timing parameters
   private silenceEndpointMs: number = 750; // Milliseconds of silence after speech to trigger turn finalization
@@ -156,6 +159,11 @@ export class SpeechSensor {
   }
 
   private handleVADOnset(): void {
+    // If in post-turn commit cooldown, ignore false ambient onsets
+    if (performance.now() < this.postCommitCooldownUntil) {
+      return;
+    }
+
     if (!this.isUserSpeaking) {
       this.isUserSpeaking = true;
       // Immediate reflex barge-in notification
@@ -175,7 +183,12 @@ export class SpeechSensor {
   }
 
   private handleIncomingSpeechText(text: string, isBrowserFinal: boolean): void {
-    // If text arrived, user is definitely speaking
+    // Ignore residual echoes of already committed text during cooldown
+    if (performance.now() < this.postCommitCooldownUntil && text === this.lastCommittedText) {
+      return;
+    }
+
+    // If text arrived, user is speaking
     this.handleVADOnset();
     this.pendingInterimText = text;
 
@@ -224,20 +237,32 @@ export class SpeechSensor {
       this.interimStabilizeTimer = null;
     }
 
+    const trimmed = finalText.trim();
+    if (!trimmed) {
+      this.isUserSpeaking = false;
+      return;
+    }
+
+    // Suppress duplicate turn commits within 1500ms
+    const now = performance.now();
+    const normIncoming = trimmed.toLowerCase().replace(/[.,!?;:]/g, '');
+    const normLast = this.lastCommittedText.toLowerCase().replace(/[.,!?;:]/g, '');
+    if ((now - this.lastCommittedTime) < 1500 && normIncoming === normLast) {
+      console.log('[SpeechSensor] Duplicate turn commit suppressed:', trimmed);
+      this.isUserSpeaking = false;
+      return;
+    }
+
     this.isUserSpeaking = false;
     this.pendingInterimText = "";
     this.lastStabilizedText = "";
+    this.lastCommittedText = trimmed;
+    this.lastCommittedTime = now;
+    this.postCommitCooldownUntil = now + 1200; // 1.2s guard to prevent self-interruption
     this.vad.reset();
 
     // Trigger turn completion
-    this.callbacks.onFinalTranscript(finalText);
-
-    // Cleanly cycle recognition so Chrome resets its internal recognition buffer
-    try {
-      this.recognition?.abort();
-    } catch {
-      // Ignore
-    }
+    this.callbacks.onFinalTranscript(trimmed);
   }
 
   private monitorVADLoop = (): void => {

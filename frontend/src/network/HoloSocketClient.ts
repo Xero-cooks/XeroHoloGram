@@ -212,17 +212,28 @@ export class HoloSocketClient {
     const numSamples = view.getUint32(8, true);
     const flags = view.getUint32(12, true);
 
-    const int16Samples = new Int16Array(buffer, 16);
-    const float32Samples = new Float32Array(int16Samples.length);
-
-    for (let i = 0; i < int16Samples.length; i++) {
-      float32Samples[i] = int16Samples[i] / 32768.0;
-    }
-
     const header: WSBinaryAudioHeader = { seqId, sampleRate, numSamples, flags };
     const rawPayload = buffer.slice(16);
-    this.rawAudioCallbacks.forEach(cb => cb(header, rawPayload));
-    this.audioCallbacks.forEach(cb => cb(header, float32Samples));
+    const u8 = new Uint8Array(rawPayload);
+
+    // Detect if payload is compressed MPEG/MP3 or AAC/ID3
+    const isCompressedAudio = (
+      (u8.length >= 2 && u8[0] === 0xFF && (u8[1] & 0xE0) === 0xE0) || // MP3 Sync Word
+      (u8.length >= 3 && u8[0] === 0x49 && u8[1] === 0x44 && u8[2] === 0x33) // ID3 Tag
+    );
+
+    if (isCompressedAudio) {
+      // Dispatch exclusively to raw encoded audio subscribers (WebAudio decodeAudioData)
+      this.rawAudioCallbacks.forEach(cb => cb(header, rawPayload));
+    } else {
+      // Genuine 16-bit uncompressed PCM: dispatch exclusively to float32 audio subscribers
+      const int16Samples = new Int16Array(buffer, 16);
+      const float32Samples = new Float32Array(int16Samples.length);
+      for (let i = 0; i < int16Samples.length; i++) {
+        float32Samples[i] = int16Samples[i] / 32768.0;
+      }
+      this.audioCallbacks.forEach(cb => cb(header, float32Samples));
+    }
   }
 
   public sendTranscript(text: string, isFinal: boolean): void {

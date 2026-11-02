@@ -18,6 +18,11 @@ class BargeInHandler:
         state_machine: TurnStateMachine,
         in_flight_task: Optional[asyncio.Task] = None
     ) -> bool:
+        # Guard: Only abort if agent is actively vocalizing (SPEAKING)
+        if state_machine.current_state != TurnState.SPEAKING:
+            logger.info(f"[{session_id}] Barge-in ignored: current state is {state_machine.current_state.value} (not SPEAKING)")
+            return False
+
         logger.info(f"[{session_id}] Executing instant barge-in cancellation...")
 
         # 1. Cancel in-flight parallel generation task

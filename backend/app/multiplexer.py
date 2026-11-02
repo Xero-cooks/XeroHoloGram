@@ -38,6 +38,10 @@ default_tts = EdgeTTSAdapter(
     rate=initial_cfg.get("ttsRate", "+0%")
 )
 
+# Aliases for status API introspection
+llm_client = chat_client
+d3_engine = decision_client
+
 if initial_cfg.get("decisionModel"):
     decision_client.model = initial_cfg["decisionModel"]
 
@@ -104,24 +108,42 @@ async def process_conversational_turn(
         sequence_id = 0
         full_chat_tokens = []
 
-        async for token in chat_client.stream_chat(user_prompt):
-            full_chat_tokens.append(token)
-            await connection_manager.send_json(session_id, {
-                "type": "chat_stream_chunk",
-                "token": token
-            })
-            clauses = chunker.feed_token(token)
-            for clause in clauses:
-                await synthesize_and_send_audio(session_id, clause, tts_adapter, sequence_id)
-                sequence_id += 1
+        cfg = config_store.get()
+        tts_engine = cfg.get("ttsEngine", "edge_tts")
 
-        final_clauses = chunker.flush()
-        for clause in final_clauses:
-            await synthesize_and_send_audio(session_id, clause, tts_adapter, sequence_id)
-            sequence_id += 1
+        try:
+            async for token in chat_client.stream_chat(user_prompt):
+                full_chat_tokens.append(token)
+                await connection_manager.send_json(session_id, {
+                    "type": "chat_stream_chunk",
+                    "token": token
+                })
+                if tts_engine == "edge_tts":
+                    clauses = chunker.feed_token(token)
+                    for clause in clauses:
+                        try:
+                            await synthesize_and_send_audio(session_id, clause, tts_adapter, sequence_id)
+                            sequence_id += 1
+                        except Exception as tts_err:
+                            logger.warning(f"Streaming TTS error on clause: {tts_err}")
+
+            if tts_engine == "edge_tts":
+                final_clauses = chunker.flush()
+                for clause in final_clauses:
+                    try:
+                        await synthesize_and_send_audio(session_id, clause, tts_adapter, sequence_id)
+                        sequence_id += 1
+                    except Exception as tts_err:
+                        logger.warning(f"Final TTS clause error: {tts_err}")
+
+        except Exception as chat_err:
+            logger.warning(f"Chat stream encountered error ({chat_err}), using fallback speech.")
 
         complete_spoken_text = "".join(full_chat_tokens).strip()
-        # Broadcast full spoken response to frontend for audio playback & visual sync
+        if not complete_spoken_text:
+            complete_spoken_text = chat_client._get_fallback_speech(user_prompt)
+
+        # Broadcast guaranteed complete spoken response to frontend for audio playback & visual sync
         await connection_manager.send_json(session_id, {
             "type": "chat_response",
             "text": complete_spoken_text,
@@ -184,8 +206,25 @@ async def websocket_hologram_endpoint(websocket: WebSocket, session_id: str = "d
                 prewarmer.on_interim_text(session_id, data.get("text", ""))
 
             elif msg_type in ("speech_final", "final_transcript", "prompt_test", "prompt_request"):
-                text = data.get("text", "")
+                text = (data.get("text") or "").strip()
+                if not text:
+                    continue
+
+                loop = asyncio.get_event_loop()
+                now_ts = loop.time()
+                last_txt = getattr(session, "last_prompt_text", None)
+                last_time = getattr(session, "last_prompt_time", 0.0)
+
+                # Deduplicate identical consecutive prompts within 2.0s
+                if text == last_txt and (now_ts - last_time) < 2.0:
+                    logger.info(f"[{session_id}] Duplicate prompt suppressed: '{text[:30]}'")
+                    continue
+
+                session.last_prompt_text = text
+                session.last_prompt_time = now_ts
+
                 if session.in_flight_task and not session.in_flight_task.done():
+                    logger.info(f"[{session_id}] Canceling previous task for incoming prompt: '{text[:30]}'")
                     session.in_flight_task.cancel()
 
                 session.in_flight_task = asyncio.create_task(
@@ -193,7 +232,13 @@ async def websocket_hologram_endpoint(websocket: WebSocket, session_id: str = "d
                 )
 
             elif msg_type == "barge_in":
-                await barge_in_handler.handle_barge_in(session_id, state_machine, session.in_flight_task)
+                # Only execute barge-in if the agent is actively SPEAKING!
+                # If state is THINKING, the user prompt is still being processed by D3 or Chat LLM
+                # and must NEVER be cancelled by ambient room noise or VAD flutter!
+                if state_machine.current_state == TurnState.SPEAKING:
+                    await barge_in_handler.handle_barge_in(session_id, state_machine, session.in_flight_task)
+                else:
+                    logger.info(f"[{session_id}] Ignored barge_in during state {state_machine.current_state.value}")
 
             elif msg_type in ("heartbeat", "ping"):
                 ts = data.get("timestamp", data.get("timestamp_ms", 0))

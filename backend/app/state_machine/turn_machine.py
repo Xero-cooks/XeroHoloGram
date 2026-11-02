@@ -27,6 +27,10 @@ class TurnStateMachine:
         self.state: TurnState = TurnState.IDLE
         self.on_transition = on_transition
 
+    @property
+    def current_state(self) -> TurnState:
+        return self.state
+
     def transition_to(self, new_state: TurnState) -> bool:
         if new_state == self.state:
             return True

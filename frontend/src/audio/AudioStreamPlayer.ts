@@ -8,7 +8,7 @@ export class AudioStreamPlayer {
   private ctx: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private masterGain: GainNode | null = null;
-  private volume: number = 2.5; // 250% High-Loudness Volume Boost
+  private volume: number = 1.15; // Clean, high-clarity output gain without digital clipping distortion
   private nextPlayTime: number = 0;
   private activeSources: AudioBufferSourceNode[] = [];
   private sampleRate: number;
@@ -136,17 +136,38 @@ export class AudioStreamPlayer {
   }
 
   /**
-   * Instantly stops all in-flight audio buffers during barge-in
+   * Instantly and smoothly stops all in-flight audio buffers with de-clicking micro-fade
    */
   public flush(): void {
-    for (const source of this.activeSources) {
+    if (this.masterGain && this.ctx && this.ctx.state === 'running') {
       try {
-        source.stop();
+        const now = this.ctx.currentTime;
+        this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
+        this.masterGain.gain.linearRampToValueAtTime(0.0001, now + 0.008);
       } catch {
-        // Source may have already terminated
+        // Fallback
       }
     }
+
+    const sourcesToStop = [...this.activeSources];
     this.activeSources = [];
+
+    setTimeout(() => {
+      for (const source of sourcesToStop) {
+        try {
+          source.stop();
+          source.disconnect();
+        } catch {
+          // Source may have already terminated
+        }
+      }
+      if (this.masterGain && this.ctx && this.ctx.state === 'running') {
+        try {
+          this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
+        } catch {}
+      }
+    }, 12);
+
     if (this.ctx) {
       this.nextPlayTime = this.ctx.currentTime;
     }
