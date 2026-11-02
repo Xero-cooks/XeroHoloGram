@@ -272,7 +272,7 @@ If your laptop hinge opens fully to $180^\circ$ (common on ThinkPads, ASUS Zenbo
 - **Python 3.10+** (Python 3.11 / 3.12 / 3.14 recommended)
 - A modern WebGL2-capable browser (Chrome, Edge, Firefox, Brave)
 
-### 1. One-Command Launch (Fastest)
+### 1. One-Click / Single-Command Launch (Fastest)
 
 Clone the repository and run the single launcher script:
 
@@ -281,15 +281,25 @@ Clone the repository and run the single launcher script:
 git clone https://github.com/Xero-cooks/XeroHoloGram.git
 cd XeroHoloGram
 
-# Windows
-start_holo.bat
+# Windows (Double-click or run from terminal):
+run.bat
 
-# Linux / macOS
-chmod +x start_holo.sh
-./start_holo.sh
+# PowerShell:
+.\run.ps1
+
+# Universal Python / Mac / Linux:
+python start.py
+# or:
+npm start / bun start
 ```
 
-This automatically installs dependencies, boots the backend WebSocket daemon on `ws://localhost:8765/ws/hologram`, and launches the 60 FPS Three.js viewport on `http://localhost:5173`.
+This single script automatically:
+1. Detects Python, Bun/Node, and validates environment dependencies.
+2. Cleans up any conflicting or dangling processes on ports `8765` and `5173`.
+3. Launches the Backend Multiplexer Daemon on `ws://localhost:8765/ws/hologram`.
+4. Launches the 60 FPS Three.js WebGL Hologram Viewport on `http://localhost:5173`.
+5. Automatically opens your default web browser to the hologram viewport.
+6. Gracefully shuts down both background processes when you press `Ctrl+C`.
 
 ### 2. Manual Developer Setup
 
