@@ -60,6 +60,9 @@ export type AudioChunkCallback = (header: WSBinaryAudioHeader, pcmData: Float32A
 export type RawAudioChunkCallback = (header: WSBinaryAudioHeader, rawBytes: ArrayBuffer) => void;
 export type StatusCallback = (status: 'connected' | 'disconnected' | 'reconnecting' | 'error') => void;
 export type RTTCallback = (rttMs: number) => void;
+export type ChatResponseCallback = (text: string, role?: string) => void;
+export type ChatChunkCallback = (token: string) => void;
+export type ConfigSyncCallback = (config: any) => void;
 
 export class HoloSocketClient {
   private url: string;
@@ -81,6 +84,9 @@ export class HoloSocketClient {
   private rawAudioCallbacks: Set<RawAudioChunkCallback> = new Set();
   private statusCallbacks: Set<StatusCallback> = new Set();
   private rttCallbacks: Set<RTTCallback> = new Set();
+  private chatResponseCallbacks: Set<ChatResponseCallback> = new Set();
+  private chatChunkCallbacks: Set<ChatChunkCallback> = new Set();
+  private configSyncCallbacks: Set<ConfigSyncCallback> = new Set();
 
   constructor(url: string = 'ws://localhost:8765/ws/hologram') {
     this.url = url;
@@ -177,6 +183,21 @@ export class HoloSocketClient {
       if (data.type === 'd3_kinematics' || (data.gesture_sequence && Array.isArray(data.gesture_sequence))) {
         this.kinematicCallbacks.forEach(cb => cb(data as D3KinematicPacket));
       }
+
+      // Handle Spoken Chat LLM Voice Text (System 2 Response)
+      if (data.type === 'chat_response') {
+        this.chatResponseCallbacks.forEach(cb => cb(data.text || '', data.role || 'assistant'));
+      }
+
+      // Handle Streaming Chat LLM Chunk
+      if (data.type === 'chat_stream_chunk') {
+        this.chatChunkCallbacks.forEach(cb => cb(data.token || ''));
+      }
+
+      // Handle Configuration Synced from PC Disk
+      if (data.type === 'config_state' || data.type === 'config_ack') {
+        this.configSyncCallbacks.forEach(cb => cb(data.config || {}));
+      }
     } catch (e) {
       console.error('[HoloSocketClient] JSON decode failed:', e);
     }
@@ -268,6 +289,21 @@ export class HoloSocketClient {
   public onRTT(cb: RTTCallback): () => void {
     this.rttCallbacks.add(cb);
     return () => this.rttCallbacks.delete(cb);
+  }
+
+  public onChatResponse(cb: ChatResponseCallback): () => void {
+    this.chatResponseCallbacks.add(cb);
+    return () => this.chatResponseCallbacks.delete(cb);
+  }
+
+  public onChatChunk(cb: ChatChunkCallback): () => void {
+    this.chatChunkCallbacks.add(cb);
+    return () => this.chatChunkCallbacks.delete(cb);
+  }
+
+  public onConfigSync(cb: ConfigSyncCallback): () => void {
+    this.configSyncCallbacks.add(cb);
+    return () => this.configSyncCallbacks.delete(cb);
   }
 
   public getRTT(): number {

@@ -15,16 +15,48 @@ from backend.app.tts.edge_adapter import EdgeTTSAdapter
 from backend.app.tts.base_adapter import BaseTTSAdapter
 from backend.app.protocol.audio_packer import AudioPacker
 from backend.app.protocol.telemetry import LatencyTelemetry
+from backend.app.config_store import config_store
 
 logger = logging.getLogger("MultiplexerDaemon")
 
-# Global daemon singletons
+# Global daemon singletons initialized with persistent disk config
+initial_cfg = config_store.get()
+
 connection_manager = ConnectionManager()
 barge_in_handler = BargeInHandler(connection_manager)
 prewarmer = SpeculativePrewarmer()
 telemetry = LatencyTelemetry()
 decision_client = VLLMDecisionClient(key_pool=decision_key_pool)
-chat_client = OpenAIChatClient()
+chat_client = OpenAIChatClient(
+    base_url=initial_cfg.get("baseUrl"),
+    api_key=initial_cfg.get("apiKey"),
+    model=initial_cfg.get("model", "gpt-4o-mini"),
+    system_prompt=initial_cfg.get("systemPrompt")
+)
+default_tts = EdgeTTSAdapter(
+    voice=initial_cfg.get("ttsVoice", "en-US-ChristopherNeural"),
+    rate=initial_cfg.get("ttsRate", "+0%")
+)
+
+if initial_cfg.get("decisionModel"):
+    decision_client.model = initial_cfg["decisionModel"]
+
+
+def sync_runtime_config(new_cfg: dict):
+    """Synchronizes in-memory singletons when configuration changes."""
+    chat_client.update_config(
+        base_url=new_cfg.get("baseUrl") or new_cfg.get("base_url"),
+        api_key=new_cfg.get("apiKey") if "apiKey" in new_cfg else new_cfg.get("api_key"),
+        model=new_cfg.get("model"),
+        system_prompt=new_cfg.get("systemPrompt") or new_cfg.get("system_prompt")
+    )
+    if new_cfg.get("decisionModel") or new_cfg.get("decision_model"):
+        decision_client.model = new_cfg.get("decisionModel") or new_cfg.get("decision_model")
+    if new_cfg.get("ttsVoice") or new_cfg.get("tts_voice"):
+        default_tts._voice = new_cfg.get("ttsVoice") or new_cfg.get("tts_voice")
+    if new_cfg.get("ttsRate") or new_cfg.get("tts_rate"):
+        default_tts._rate = new_cfg.get("ttsRate") or new_cfg.get("tts_rate")
+    logger.info(f"Runtime singletons synchronized with config: {new_cfg.get('model')}")
 
 
 async def process_conversational_turn(
@@ -70,8 +102,14 @@ async def process_conversational_turn(
         state_machine.transition_to(TurnState.SPEAKING)
         chunker = ClauseChunker()
         sequence_id = 0
+        full_chat_tokens = []
 
         async for token in chat_client.stream_chat(user_prompt):
+            full_chat_tokens.append(token)
+            await connection_manager.send_json(session_id, {
+                "type": "chat_stream_chunk",
+                "token": token
+            })
             clauses = chunker.feed_token(token)
             for clause in clauses:
                 await synthesize_and_send_audio(session_id, clause, tts_adapter, sequence_id)
@@ -81,6 +119,14 @@ async def process_conversational_turn(
         for clause in final_clauses:
             await synthesize_and_send_audio(session_id, clause, tts_adapter, sequence_id)
             sequence_id += 1
+
+        complete_spoken_text = "".join(full_chat_tokens).strip()
+        # Broadcast full spoken response to frontend for audio playback & visual sync
+        await connection_manager.send_json(session_id, {
+            "type": "chat_response",
+            "text": complete_spoken_text,
+            "role": "assistant"
+        })
 
         state_machine.transition_to(TurnState.IDLE)
 
@@ -122,7 +168,12 @@ async def synthesize_and_send_audio(
 async def websocket_hologram_endpoint(websocket: WebSocket, session_id: str = "default_hologram_session"):
     session = await connection_manager.connect(session_id, websocket)
     state_machine = TurnStateMachine(session_id)
-    default_tts = EdgeTTSAdapter()
+
+    # Immediately synchronize client with persisted disk configuration
+    await connection_manager.send_json(session_id, {
+        "type": "config_state",
+        "config": config_store.get()
+    })
 
     try:
         while True:
@@ -149,25 +200,31 @@ async def websocket_hologram_endpoint(websocket: WebSocket, session_id: str = "d
                 await connection_manager.send_json(session_id, {"type": "pong", "timestamp": ts})
 
             elif msg_type == "llm_config":
-                chat_client.update_config(
-                    base_url=data.get("base_url"),
-                    api_key=data.get("api_key"),
-                    model=data.get("model"),
-                    system_prompt=data.get("system_prompt")
-                )
-                if "decision_model" in data and data["decision_model"]:
-                    decision_client.model = data["decision_model"]
-                if "tts_voice" in data and data["tts_voice"]:
-                    default_tts._voice = data["tts_voice"]
+                # Persist updated configuration directly to PC disk
+                saved_cfg = config_store.save({
+                    "provider": data.get("provider", "openai"),
+                    "baseUrl": data.get("base_url") or data.get("baseUrl") or "https://api.openai.com/v1",
+                    "apiKey": data.get("api_key") if "api_key" in data else data.get("apiKey", ""),
+                    "model": data.get("model", "gpt-4o-mini"),
+                    "temperature": data.get("temperature", 0.7),
+                    "systemPrompt": data.get("system_prompt") or data.get("systemPrompt"),
+                    "decisionModel": data.get("decision_model") or data.get("decisionModel", "vllm-sr/d3-flash"),
+                    "ttsEngine": data.get("tts_engine") or data.get("ttsEngine", "edge_tts"),
+                    "ttsVoice": data.get("tts_voice") or data.get("ttsVoice", "en-US-ChristopherNeural"),
+                    "ttsRate": data.get("tts_rate") or data.get("ttsRate", "+0%")
+                })
+                sync_runtime_config(saved_cfg)
 
                 pool_stats = decision_key_pool.get_pool_stats()
                 await connection_manager.send_json(session_id, {
                     "type": "config_ack",
                     "status": "updated",
+                    "saved_to_disk": True,
                     "chat_model": chat_client.model,
                     "decision_model": decision_client.model,
                     "decision_key_pool": pool_stats,
-                    "tts_voice": getattr(default_tts, "_voice", "default")
+                    "tts_voice": getattr(default_tts, "_voice", "default"),
+                    "config": saved_cfg
                 })
 
     except WebSocketDisconnect:
