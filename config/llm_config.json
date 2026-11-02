@@ -1,0 +1,12 @@
+{
+  "provider": "openai",
+  "baseUrl": "https://api.openai.com/v1",
+  "apiKey": "",
+  "model": "gpt-4o-mini",
+  "temperature": 0.7,
+  "systemPrompt": "You are XeroKratos, an ultra-advanced 3D Holographic AI Agent inside a physical Pepper's Ghost optical display. You communicate clearly, concisely, and naturally for real-time voice speech. Keep responses focused, sharp, and conversational without markdown fluff or bullet points.",
+  "decisionModel": "vllm-sr/d3-flash",
+  "ttsEngine": "edge_tts",
+  "ttsVoice": "en-US-ChristopherNeural",
+  "ttsRate": "+0%"
+}
